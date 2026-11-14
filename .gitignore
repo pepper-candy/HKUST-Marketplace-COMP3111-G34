@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+dist-ssr/
+build/
+
+# env and secrets
+.env
+.env.*
+!.env.example
+
+# logs and OS
+*.log
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
+*.swp
+
+# TypeScript / Vite
+*.local
+.vite/
+.cache/
+*.tsbuildinfo
+vite.config.*.timestamp-*
+
+# Figma Make local/agent state (not app source)
+/.figma/design-context/
+/.plugins/
+/.opencode-skills/

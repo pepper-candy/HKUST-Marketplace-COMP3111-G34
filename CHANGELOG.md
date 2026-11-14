@@ -1,0 +1,72 @@
+# Changelog
+
+COMP3111 F2026, Group 34 (Non-Honors). Newest first.
+
+## 2026-11-14 — First-draft Supabase backend (Task 1–3)
+
+This session hooked the existing Figma Make Vite + React UI to Supabase. Official Canvas Task 1–3 only: no extra features, no demo listing/user seed.
+
+### What teammates will notice
+
+- The Figma Make app is now **real source in this repo** (`src/`, `package.json`, Vite config), not only `USTMarketPlace - Figma.make`.
+- Login / register / listings / offers / chats / ratings / notifications no longer use in-memory mock data. They read and write **Supabase**.
+- Empty marketplace until someone registers and the admin approves listings.
+- Admin is **login-only**. There is no admin sign-up screen.
+
+### New / important files
+
+| File | Why it exists |
+|---|---|
+| `PLAN.md` | Approved Task 1–3 plan and remaining checklist |
+| `supabase/001_schema.sql` | Postgres tables, RLS, RPCs, explicit GRANTs — **must be run in the Dashboard** |
+| `src/lib/supabase.ts` | Official `@supabase/supabase-js` client |
+| `src/lib/api.ts` | Auth + marketplace reads/writes used by the UI |
+| `.env.example` | Env var names only (no secrets) |
+| `README.md` | Setup, password rules, admin seed steps |
+
+UI still lives mainly in `src/App.tsx` (same screens/CSS). Mock arrays were removed; handlers call `src/lib/api.ts`.
+
+### Backend (schema)
+
+Tables: `profiles`, `listings`, `offers`, `chat_threads`, `chat_messages`, `ratings`, `notifications`, `listing_reports`.
+
+Rules encoded in SQL, not only the UI:
+
+- Unique username across buyer / seller / admin
+- Passwords hashed by **Supabase Auth** (never stored in Postgres)
+- Role checks via RLS + RPCs (buyer cannot hit seller/admin-only actions)
+- Listing **view count** increments when a detail is opened
+- Chat history is kept and searchable
+- Giveaway **claim**: row lock so only the first claim succeeds
+- Borrow period minimum **5 seconds** (for testing); overdue borrows auto-return
+- User “permanent delete” is a **soft-delete** (listings taken down; deals/chats kept for audit)
+
+### Auth (how login works)
+
+- Buyer and seller: register + login with **username** + password.
+- Confirm-password is **client-side only**.
+- Password rules: 8+ characters, one uppercase, one lowercase, one number.
+- Username without `@` is stored in Auth as `{username}@users.hkust-marketplace.local`.
+- After login, `profiles.role` must match the portal (buyer cannot open seller/admin).
+- Admin username: `admin@ust.hk`. Create that Auth user in the dashboard (no password in git).
+
+Env vars (`.env.local`, gitignored):
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY` — **publishable/anon only**. Never put `service_role` / `sb_secret` in the frontend.
+
+### Not done yet
+
+- [ ] Apply `supabase/001_schema.sql` in the Supabase SQL Editor (not applied from this machine).
+- [ ] Seed `admin@ust.hk` in Authentication → Users (see `README.md`).
+- [ ] Turn **off** Email confirmations for local/demo grading.
+
+Until those three are done, register/login against the cloud project will fail.
+
+### What we did *not* do
+
+- No `npm run dev` / `npm run build` / type-check in this session
+- No commit, push, or merge
+- No mock seed of listings or student accounts
+- No extra npm packages besides `@supabase/supabase-js`
+- No service-role key in the app or in git
