@@ -157,19 +157,38 @@ DELETE FROM public.notifications
 WHERE title = 'New account registered'
   AND message ~ '@(kai\.lam|sofiapeng|noman\.chow|aisha\.rahman|tomo\.sato|wong\.mei|jason\.ng|priya\.sharma|lucas\.ho|emily\.wu|david\.kwok|hana\.kim|brian\.lau)';
 
-CREATE OR REPLACE FUNCTION pg_temp.photo(label text, bg text)
-RETURNS text
-LANGUAGE sql
-IMMUTABLE
-AS $$
-  SELECT 'data:image/svg+xml;charset=utf-8,' ||
-    replace(replace(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="100%" height="100%" fill="'
-      || bg || '"/><text x="400" y="310" text-anchor="middle" fill="white" font-size="28" font-family="sans-serif">'
-      || label || '</text></svg>',
-      '#', '%23'
-    ), ' ', '%20');
-$$;
+-- Product photos from the Figma Make mock listings (Unsplash). The export had no
+-- files under src/ or public/ except favicon.png.
+CREATE TEMP TABLE demo_photo (k text PRIMARY KEY, urls text[]);
+INSERT INTO demo_photo (k, urls) VALUES
+  ('notes', ARRAY[
+    'https://images.unsplash.com/photo-1761546571631-a4d61b55cd2f?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1764096535068-0e9f652e03f6?auto=format&fit=crop&w=1200&q=85'
+  ]),
+  ('laptop', ARRAY[
+    'https://images.unsplash.com/photo-1487017159836-4e23ece2e4cf?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1625297671662-f073f2a91528?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1639413665566-2f75adf7b7ca?auto=format&fit=crop&w=1200&q=85'
+  ]),
+  ('headphones', ARRAY[
+    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=1200&q=85'
+  ]),
+  ('gold_headphones', ARRAY[
+    'https://images.unsplash.com/photo-1545127398-14699f92334b?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=1200&q=85'
+  ]),
+  ('bike', ARRAY[
+    'https://images.unsplash.com/photo-1519219444773-9453a2f1f87c?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1584278140365-2ab8bff2be82?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1602517232715-c4a366f0ce1b?auto=format&fit=crop&w=1200&q=85'
+  ]),
+  ('monitor', ARRAY[
+    'https://images.unsplash.com/photo-1570993492881-25240ce854f4?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1639413665566-2f75adf7b7ca?auto=format&fit=crop&w=1200&q=85'
+  ]);
 
 ALTER TABLE public.listings DISABLE TRIGGER listings_inserted;
 ALTER TABLE public.chat_messages DISABLE TRIGGER chat_messages_notify;
@@ -182,70 +201,70 @@ INSERT INTO public.listings (
   -- kai.lam textbooks
   ('a1000000-0000-4000-8000-000000000001', 'COMP3111 Software Engineering notes', 'Books & Course Materials', 'sell', 'Used',
     'Full semester handwritten notes plus the sample project plan. Highlighted, no missing pages. Meet at the library after 6pm.',
-    80, NULL, NULL, 'Library Entrance', ARRAY[pg_temp.photo('COMP3111 notes', '#073763')], 'sold', NULL, 64, now() - interval '19 days', now() - interval '12 days'),
+    80, NULL, NULL, 'Library Entrance', (SELECT urls FROM demo_photo WHERE k = 'notes'), 'sold', NULL, 64, now() - interval '19 days', now() - interval '12 days'),
   ('a1000000-0000-4000-8000-000000000001', 'COMP3511 Operating Systems textbook', 'Books & Course Materials', 'sell', 'Like New',
     'International edition, barely used for one term. No writing inside. Can include my chapter 3–5 summary sheets if you want them.',
-    220, NULL, NULL, 'Academic Building Atrium', ARRAY[pg_temp.photo('COMP3511 book', '#0b477f')], 'live', NULL, 41, now() - interval '16 days', now() - interval '2 days'),
+    220, NULL, NULL, 'Academic Building Atrium', (SELECT urls FROM demo_photo WHERE k = 'notes'), 'live', NULL, 41, now() - interval '16 days', now() - interval '2 days'),
   ('a1000000-0000-4000-8000-000000000001', 'MATH2111 Linear Algebra notes', 'Books & Course Materials', 'sell', 'Used',
     'Scanned and printed notes from last fall. Neat enough to study from. Waiting on admin review before this goes live.',
-    45, NULL, NULL, 'Library Entrance', ARRAY[pg_temp.photo('MATH2111', '#073763')], 'pending', NULL, 3, now() - interval '1 day', now() - interval '1 day'),
+    45, NULL, NULL, 'Library Entrance', (SELECT urls FROM demo_photo WHERE k = 'notes'), 'pending', NULL, 3, now() - interval '1 day', now() - interval '1 day'),
   ('a1000000-0000-4000-8000-000000000001', 'PHYS1112 lab manual (annotated)', 'Books & Course Materials', 'sell', 'Used',
     'Lab manual with pencil answers in the margins. Admin rejected because the photos were unclear — I will resubmit.',
-    30, NULL, NULL, 'Academic Building Atrium', ARRAY[pg_temp.photo('PHYS1112', '#68788a')], 'rejected',
+    30, NULL, NULL, 'Academic Building Atrium', (SELECT urls FROM demo_photo WHERE k = 'notes'), 'rejected',
     'Photos are too dark to confirm the edition. Please upload a clearer cover shot and resubmit.', 8, now() - interval '9 days', now() - interval '8 days'),
 
   -- sofiapeng electronics
   ('a1000000-0000-4000-8000-000000000002', 'Casio fx-50FH calculator', 'Electronics', 'sell', 'Like New',
     'Exam-legal Casio. Original case included. Battery replaced this month. Prefer cash at Hall IX lobby.',
-    150, NULL, NULL, 'Hall IX Lobby', ARRAY[pg_temp.photo('Casio fx-50FH', '#267458')], 'reserved', NULL, 55, now() - interval '18 days', now() - interval '2 days'),
+    150, NULL, NULL, 'Hall IX Lobby', (SELECT urls FROM demo_photo WHERE k = 'headphones'), 'reserved', NULL, 55, now() - interval '18 days', now() - interval '2 days'),
   ('a1000000-0000-4000-8000-000000000002', 'USB-C 7-in-1 hub', 'Electronics', 'sell', 'Used',
     'HDMI, USB-A, SD, and PD charging. Works with my MacBook. Light scuffs on the aluminium shell.',
-    90, NULL, NULL, 'Library Entrance', ARRAY[pg_temp.photo('USB-C hub', '#0b477f')], 'live', NULL, 27, now() - interval '11 days', now() - interval '1 day'),
+    90, NULL, NULL, 'Library Entrance', (SELECT urls FROM demo_photo WHERE k = 'laptop'), 'live', NULL, 27, now() - interval '11 days', now() - interval '1 day'),
   ('a1000000-0000-4000-8000-000000000002', 'Logitech M720 mouse', 'Electronics', 'sell', 'Used',
     'Multi-device Bluetooth mouse. Scroll wheel still smooth. Unifying receiver in the box.',
-    75, NULL, NULL, 'Library Entrance', ARRAY[pg_temp.photo('Logitech mouse', '#14263a')], 'sold', NULL, 19, now() - interval '13 days', now() - interval '6 days'),
+    75, NULL, NULL, 'Library Entrance', (SELECT urls FROM demo_photo WHERE k = 'laptop'), 'sold', NULL, 19, now() - interval '13 days', now() - interval '6 days'),
   ('a1000000-0000-4000-8000-000000000002', 'Monitor arm (single)', 'Electronics', 'lend', 'Used',
     'Clamp-on arm for a 27-inch screen. Borrow for a project week if your desk is tiny. I need it back before midterm week.',
-    NULL, 1, 'Weeks', 'Hall IX Lobby', ARRAY[pg_temp.photo('Monitor arm', '#073763')], 'live', NULL, 14, now() - interval '7 days', now() - interval '7 days'),
+    NULL, 1, 'Weeks', 'Hall IX Lobby', (SELECT urls FROM demo_photo WHERE k = 'monitor'), 'live', NULL, 14, now() - interval '7 days', now() - interval '7 days'),
 
   -- noman.chow dorm
   ('a1000000-0000-4000-8000-000000000003', 'IKEA desk lamp', 'Furniture & Home', 'sell', 'Used',
     'White clamp lamp, warm bulb included. No flicker. I am downsizing before hall checkout.',
-    60, NULL, NULL, 'Hall IX Lobby', ARRAY[pg_temp.photo('Desk lamp', '#c6a15b')], 'live', NULL, 22, now() - interval '12 days', now() - interval '12 days'),
+    60, NULL, NULL, 'Hall IX Lobby', (SELECT urls FROM demo_photo WHERE k = 'laptop'), 'live', NULL, 22, now() - interval '12 days', now() - interval '12 days'),
   ('a1000000-0000-4000-8000-000000000003', 'Folding laundry rack', 'Furniture & Home', 'giveaway', 'Used',
     'Free to a hall neighbour who will actually use it. A bit wobbly on one leg but it dries a full load.',
-    NULL, NULL, NULL, 'Hall IX Lobby', ARRAY[pg_temp.photo('Laundry rack', '#68788a')], 'given', NULL, 18, now() - interval '10 days', now() - interval '6 days'),
+    NULL, NULL, NULL, 'Hall IX Lobby', (SELECT urls FROM demo_photo WHERE k = 'bike'), 'given', NULL, 18, now() - interval '10 days', now() - interval '6 days'),
   ('a1000000-0000-4000-8000-000000000003', 'Mini fridge (hall-safe)', 'Furniture & Home', 'sell', 'Used',
     '40L fridge, quiet enough for Hall IX. Defrosted and cleaned. Awaiting admin review.',
-    400, NULL, NULL, 'Hall IX Lobby', ARRAY[pg_temp.photo('Mini fridge', '#0b477f')], 'pending', NULL, 6, now() - interval '20 hours', now() - interval '20 hours'),
+    400, NULL, NULL, 'Hall IX Lobby', (SELECT urls FROM demo_photo WHERE k = 'monitor'), 'pending', NULL, 6, now() - interval '20 hours', now() - interval '20 hours'),
 
   -- aisha.rahman fashion / merch
   ('a1000000-0000-4000-8000-000000000004', 'Black winter coat (M)', 'Fashion & Accessories', 'sell', 'Like New',
     'Uniqlo blocktech, size M, worn one winter. No stains. Good for the wind on LG7.',
-    120, NULL, NULL, 'Academic Building Atrium', ARRAY[pg_temp.photo('Winter coat', '#14263a')], 'sold', NULL, 31, now() - interval '14 days', now() - interval '5 days'),
+    120, NULL, NULL, 'Academic Building Atrium', (SELECT urls FROM demo_photo WHERE k = 'bike'), 'sold', NULL, 31, now() - interval '14 days', now() - interval '5 days'),
   ('a1000000-0000-4000-8000-000000000004', 'HKUST orientation tote bags', 'Fashion & Accessories', 'giveaway', 'New',
     'Two leftover orientation totes, never used. First claim wins — still live for the demo.',
-    NULL, NULL, NULL, 'Seafront Cafeteria', ARRAY[pg_temp.photo('UST totes', '#c6a15b')], 'live', NULL, 9, now() - interval '3 days', now() - interval '3 days'),
+    NULL, NULL, NULL, 'Seafront Cafeteria', (SELECT urls FROM demo_photo WHERE k = 'notes'), 'live', NULL, 9, now() - interval '3 days', now() - interval '3 days'),
   ('a1000000-0000-4000-8000-000000000004', 'Formal shoes size 38', 'Fashion & Accessories', 'sell', 'Used',
     'Black office shoes, size 38. Worn to two career fairs. Soles still even.',
-    70, NULL, NULL, 'Academic Building Atrium', ARRAY[pg_temp.photo('Formal shoes', '#073763')], 'live', NULL, 11, now() - interval '8 days', now() - interval '8 days'),
+    70, NULL, NULL, 'Academic Building Atrium', (SELECT urls FROM demo_photo WHERE k = 'bike'), 'live', NULL, 11, now() - interval '8 days', now() - interval '8 days'),
   ('a1000000-0000-4000-8000-000000000004', 'Free AirPods (urgent!!)', 'Electronics', 'sell', 'New',
     'Brand new AirPods, selling for $50 because I am leaving tonight. Meet anywhere. (Demo listing for report / take-down.)',
-    50, NULL, NULL, 'North Gate', ARRAY[pg_temp.photo('AirPods??', '#9b2c2c')], 'live', NULL, 47, now() - interval '2 days', now() - interval '2 days'),
+    50, NULL, NULL, 'North Gate', (SELECT urls FROM demo_photo WHERE k = 'gold_headphones'), 'live', NULL, 47, now() - interval '2 days', now() - interval '2 days'),
 
   -- tomo.sato outdoors
   ('a1000000-0000-4000-8000-000000000005', '2-person tent', 'Sports & Outdoors', 'lend', 'Used',
     'Decathlon tent, rain-tested. Currently out with a borrower until the weekend. Pickup at North Gate.',
-    NULL, 3, 'Days', 'North Gate', ARRAY[pg_temp.photo('2-person tent', '#267458')], 'lent', NULL, 36, now() - interval '13 days', now() - interval '2 days'),
+    NULL, 3, 'Days', 'North Gate', (SELECT urls FROM demo_photo WHERE k = 'bike'), 'lent', NULL, 36, now() - interval '13 days', now() - interval '2 days'),
   ('a1000000-0000-4000-8000-000000000005', 'Badminton racket set', 'Sports & Outdoors', 'lend', 'Used',
     'Two rackets and a tube of shuttles. Already borrowed and returned once this month.',
-    NULL, 1, 'Weeks', 'South Gate', ARRAY[pg_temp.photo('Badminton set', '#0b477f')], 'live', NULL, 16, now() - interval '12 days', now() - interval '3 days'),
+    NULL, 1, 'Weeks', 'South Gate', (SELECT urls FROM demo_photo WHERE k = 'bike'), 'live', NULL, 16, now() - interval '12 days', now() - interval '3 days'),
   ('a1000000-0000-4000-8000-000000000005', 'Carbon hiking poles', 'Sports & Outdoors', 'sell', 'Like New',
     'Pair of collapsible poles, used on one Sai Kung weekend. Tips still sharp.',
-    180, NULL, NULL, 'North Gate', ARRAY[pg_temp.photo('Hiking poles', '#073763')], 'live', NULL, 13, now() - interval '6 days', now() - interval '6 days'),
+    180, NULL, NULL, 'North Gate', (SELECT urls FROM demo_photo WHERE k = 'bike'), 'live', NULL, 13, now() - interval '6 days', now() - interval '6 days'),
   ('a1000000-0000-4000-8000-000000000005', 'Camping stove + gas', 'Sports & Outdoors', 'giveaway', 'Used',
     'Old but working stove and a half canister. Free if you take both. Still available.',
-    NULL, NULL, NULL, 'South Gate', ARRAY[pg_temp.photo('Camping stove', '#c6a15b')], 'live', NULL, 7, now() - interval '5 days', now() - interval '5 days');
+    NULL, NULL, NULL, 'South Gate', (SELECT urls FROM demo_photo WHERE k = 'bike'), 'live', NULL, 7, now() - interval '5 days', now() - interval '5 days');
 
 -- Offers / claims / borrows
 INSERT INTO public.offers (listing_id, buyer_id, kind, status, price, start_at, end_at, detail, completed_at, created_at, updated_at)

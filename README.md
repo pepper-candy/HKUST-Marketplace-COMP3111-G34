@@ -44,7 +44,8 @@ Sign in through **Admin Login** with username `admin@ust.hk` and that dashboard 
 For a graded demo the marketplace should not be empty. After `001` (and `002` if you already applied `001` before the RLS fix):
 
 1. SQL Editor → paste `supabase/003_demo_seed.sql` → **Run**. Safe to re-run; it only replaces the 13 demo accounts.
-2. Log in from `demo/accounts.csv`. Use the **Buyer** or **Seller** portal that matches the row. Usernames have no `@` except admin.
+2. If `003` was already applied with SVG placeholders, run `supabase/005_demo_listing_photos.sql` (do **not** re-run `003`). Listing photos are the Figma Make Unsplash URLs — the export had no product files in `src/` or `public/`.
+3. Log in from `demo/accounts.csv`. Use the **Buyer** or **Seller** portal that matches the row. Usernames have no `@` except admin.
 
 Counts (meant to look like a couple of weeks on campus, not a full year):
 
