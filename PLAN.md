@@ -13,6 +13,7 @@ COMP3111 F2026, Group 34, Non-Honors. Source of truth: `F2026 Project Tasks - HK
 - [x] README + `.env.example` (setup, password rules, admin seed steps)
 - [x] Apply SQL in the Supabase Dashboard SQL Editor
 - [x] Seed `admin@ust.hk` in Authentication → Users (password not stored in the repo)
+- [ ] Apply `supabase/002_fix_rls_recursion.sql` (listings ↔ offers policy loop; admin login 500)
 
 ## Constraints
 

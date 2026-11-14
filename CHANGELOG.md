@@ -60,6 +60,14 @@ Env vars (`.env.local`, gitignored):
 - [x] Applied `supabase/001_schema.sql` in the SQL Editor
 - [x] Seeded Auth user `admin@ust.hk` (password kept out of git)
 
+### Admin login stuck on sign-in
+
+Password was accepted. Loading listings/offers then 500’d with `infinite recursion detected in policy for relation "listings"` (listings SELECT peeked at offers, offers SELECT peeked at listings). Sign-in stayed on the form because that snapshot error was an uncaught promise.
+
+- Run `supabase/002_fix_rls_recursion.sql` in the SQL Editor (already-applied `001` is not re-run).
+- `001_schema.sql` updated the same way for a clean install.
+- Login now awaits the snapshot so a future API error shows on the form.
+
 ### Deploy
 
 - Deleted leftover Figma `pnpm-lock.yaml` so Vercel uses npm + `package-lock.json`.

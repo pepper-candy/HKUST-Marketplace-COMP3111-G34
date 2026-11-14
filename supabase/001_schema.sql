@@ -196,6 +196,37 @@ AS $$
     AND deleted_at IS NULL;
 $$;
 
+-- SECURITY DEFINER so listings/offers policies do not recurse into each other.
+CREATE OR REPLACE FUNCTION public.owns_listing(p_listing_id bigint)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.listings
+    WHERE id = p_listing_id
+      AND seller_id = auth.uid()
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.has_offer_on_listing(p_listing_id bigint)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.offers
+    WHERE listing_id = p_listing_id
+      AND buyer_id = auth.uid()
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION public.notify_user(
   p_user_id uuid,
   p_category text,
@@ -1272,10 +1303,7 @@ CREATE POLICY listings_select ON public.listings
     public.is_admin()
     OR seller_id = auth.uid()
     OR status = 'live'
-    OR EXISTS (
-      SELECT 1 FROM public.offers o
-      WHERE o.listing_id = listings.id AND o.buyer_id = auth.uid()
-    )
+    OR public.has_offer_on_listing(id)
   );
 
 CREATE POLICY listings_insert ON public.listings
@@ -1303,10 +1331,7 @@ CREATE POLICY offers_select ON public.offers
   USING (
     public.is_admin()
     OR buyer_id = auth.uid()
-    OR EXISTS (
-      SELECT 1 FROM public.listings l
-      WHERE l.id = offers.listing_id AND l.seller_id = auth.uid()
-    )
+    OR public.owns_listing(listing_id)
   );
 
 CREATE POLICY threads_select ON public.chat_threads
@@ -1400,6 +1425,8 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 GRANT EXECUTE ON FUNCTION public.resolve_login_email(text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.current_profile_role() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.owns_listing(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_offer_on_listing(bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.expire_overdue_borrows() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.increment_listing_views(bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_offer(bigint, text, numeric, timestamptz, timestamptz) TO authenticated;

@@ -5265,7 +5265,7 @@ function AuthPortal({
   notice: string;
   onViewChange: (view: AuthView) => void;
   onRegister: (user: MarketplaceUser) => void;
-  onLogin: (role: Role, username: string) => void;
+  onLogin: (role: Role, username: string) => void | Promise<void>;
 }) {
   const [loginRole, setLoginRole] = useState<"Buyer" | "Seller">("Buyer");
   const [loginUsername, setLoginUsername] = useState("");
@@ -5296,7 +5296,7 @@ function AuthPortal({
         password: loginPassword,
         expectedRole,
       });
-      onLogin(result.role, result.username);
+      await onLogin(result.role, result.username);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Try again.");
     }

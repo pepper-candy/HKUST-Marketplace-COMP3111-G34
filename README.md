@@ -20,9 +20,10 @@ Confirm-password is checked only in the browser. Passwords are hashed by Supabas
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_PUBLISHABLE_KEY` (publishable / anon key only — never a `service_role` / `sb_secret` key)
 3. Apply the schema: Supabase Dashboard → **SQL Editor** → paste `supabase/001_schema.sql` → **Run**.
-4. Seed the admin Auth user (see below).
-5. In Authentication → Providers → Email, turn **off** “Confirm email” for local/demo grading so registration can sign in immediately.
-6. Start the app with `npm run dev`.
+4. If `001` was already applied before the listings/offers RLS fix, also run `supabase/002_fix_rls_recursion.sql` (do **not** re-run `001`).
+5. Seed the admin Auth user (see below).
+6. In Authentication → Providers → Email, turn **off** “Confirm email” for local/demo grading so registration can sign in immediately.
+7. Start the app with `npm run dev`.
 
 ## Seed the admin account
 
