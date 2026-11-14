@@ -992,6 +992,7 @@ export async function updateListingDetails(
     condition: string;
     location: string;
     description: string;
+    photos?: string[];
     resubmit?: boolean;
   },
 ) {
@@ -1003,6 +1004,7 @@ export async function updateListingDetails(
     description: patch.description.trim(),
   };
   if (patch.resubmit) updates.status = "pending";
+  if (patch.photos) updates.photos = patch.photos.slice(0, 6);
   const { error } = await supabase.from("listings").update(updates).eq("id", listingId);
   throwIf(error);
 }
@@ -1183,11 +1185,71 @@ export async function sendChatMessage(threadId: number, body: string, kind: "mes
   throwIf(error);
 }
 
-export function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
+const LISTING_PHOTO_BUCKET = "listing-photos";
+const LISTING_PHOTO_MAX_EDGE = 1200;
+const LISTING_PHOTO_QUALITY = 0.82;
+
+async function blobFromCanvas(canvas: HTMLCanvasElement, type: string, quality: number) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality);
   });
+}
+
+export async function compressListingPhoto(file: File): Promise<{ blob: Blob; ext: "webp" | "jpg" }> {
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    bitmap = await createImageBitmap(file);
+  }
+  const scale = Math.min(1, LISTING_PHOTO_MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not compress that photo.");
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  const webp = await blobFromCanvas(canvas, "image/webp", LISTING_PHOTO_QUALITY);
+  if (webp && webp.size > 0 && webp.type === "image/webp") {
+    return { blob: webp, ext: "webp" };
+  }
+  const jpeg = await blobFromCanvas(canvas, "image/jpeg", LISTING_PHOTO_QUALITY);
+  if (!jpeg || jpeg.size === 0) throw new Error("Could not compress that photo.");
+  return { blob: jpeg, ext: "jpg" };
+}
+
+export async function uploadListingPhoto(file: File, userId: string) {
+  const { blob, ext } = await compressListingPhoto(file);
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(LISTING_PHOTO_BUCKET).upload(path, blob, {
+    contentType: blob.type || (ext === "webp" ? "image/webp" : "image/jpeg"),
+    upsert: false,
+  });
+  if (error) {
+    throw new Error(
+      error.message.includes("Bucket not found")
+        ? "Could not upload photos. Run supabase/008_listing_photos_storage.sql in the SQL Editor."
+        : error.message,
+    );
+  }
+  const { data } = supabase.storage.from(LISTING_PHOTO_BUCKET).getPublicUrl(path);
+  if (!data.publicUrl) throw new Error("Could not get a public URL for that photo.");
+  return data.publicUrl;
+}
+
+export async function uploadListingPhotos(items: { file?: File; url: string }[]) {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) throw new Error("Not signed in.");
+  const userId = data.user.id;
+  return Promise.all(
+    items.slice(0, 6).map((item) => {
+      if (item.file) return uploadListingPhoto(item.file, userId);
+      if (!item.url || item.url.startsWith("blob:") || item.url.startsWith("data:")) {
+        throw new Error("Photo upload failed. Try another image.");
+      }
+      return item.url;
+    }),
+  );
 }

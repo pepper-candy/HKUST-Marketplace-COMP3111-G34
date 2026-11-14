@@ -46,7 +46,8 @@ For a graded demo the marketplace should not be empty. After `001` (and `002` if
 1. SQL Editor → paste `supabase/003_demo_seed.sql` → **Run**. Safe to re-run; it only replaces the 13 demo accounts.
 2. If `003` was already applied with SVG placeholders, run `supabase/005_demo_listing_photos.sql` (do **not** re-run `003`). Listing photos are the Figma Make Unsplash URLs — the export had no product files in `src/` or `public/`.
 3. After photos are in, run `supabase/006_demo_match_photos_and_listings.sql`, then `supabase/007_fix_broken_and_follow_photos.sql` (do **not** re-run `003` / `005` / `006`). `007` replaces Unsplash IDs that 404 and adds extra listings whose copy follows the photo.
-4. Log in from `demo/accounts.csv`. Use the **Buyer** or **Seller** portal that matches the row. Usernames have no `@` except admin.
+4. Listing photo uploads: SQL Editor → paste `supabase/008_listing_photos_storage.sql` → **Run** (do **not** re-run `001`). Then confirm **Storage → listing-photos** is **Public**. New Create/Edit photos are compressed in the browser and stored as public URLs; existing Unsplash demo URLs stay.
+5. Log in from `demo/accounts.csv`. Use the **Buyer** or **Seller** portal that matches the row. Usernames have no `@` except admin.
 
 Counts (meant to look like a couple of weeks on campus, not a full year):
 

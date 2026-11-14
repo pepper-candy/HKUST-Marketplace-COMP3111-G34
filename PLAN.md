@@ -56,7 +56,7 @@ RPCs: `resolve_login_email`, `increment_listing_views`, `submit_offer`, `submit_
 
 Register/login/logout, profile + password, create/edit/delete listings, admin approve/reject/take-down/add-on-behalf, browse/search/filter/sort, view-count on detail open, offer/borrow/claim, chats + search, my deals (return / auto-return / complete), ratings, notifications, user deactivate/delete, seller stats from aggregates.
 
-Photos persist as data URLs in `listings.photos` (no Storage package).
+Listing photos: browser compress/resize (~1200px JPEG/WebP) → Supabase Storage bucket `listing-photos` → public URL in `listings.photos`. Demo Unsplash URLs stay. Never `service_role` in the frontend.
 
 ## Apply SQL
 

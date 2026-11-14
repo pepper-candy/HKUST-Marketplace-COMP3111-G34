@@ -2167,6 +2167,7 @@ function CreateListingForm({
   const [photoError, setPhotoError] = useState("");
   const [formError, setFormError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const chooseType = (type: ListingFormType) => {
     setListingType(type);
@@ -2217,12 +2218,10 @@ function CreateListingForm({
     }
     const form = event.currentTarget;
     const formData = new FormData(form);
-    setSubmitted(true);
+    setBusy(true);
     void (async () => {
       try {
-        const photoUrls = await Promise.all(
-          photos.map((photo) => (photo.file ? api.fileToDataUrl(photo.file) : photo.url)),
-        );
+        const photoUrls = await api.uploadListingPhotos(photos);
         const durationValue = Number(formData.get("duration") || 0);
         await api.createListing({
           type: listingType as Listing["type"],
@@ -2239,14 +2238,16 @@ function CreateListingForm({
           goLive: role === "Admin",
         });
         await onRefresh();
+        setSubmitted(true);
         onAction(
           role === "Admin"
             ? "Listing added to the marketplace"
             : "Listing submitted with status Pending Review",
         );
       } catch (err) {
-        setSubmitted(false);
         setFormError(err instanceof Error ? err.message : "Could not submit listing.");
+      } finally {
+        setBusy(false);
       }
     })();
   };
@@ -2427,7 +2428,7 @@ function CreateListingForm({
               <span>3</span>
               <div>
                 <h3>Photos</h3>
-                <p>Add up to 6 clear photos. The first image becomes the cover.</p>
+                <p>Add up to 6 photos. They are resized in the browser (~1200px) before upload.</p>
               </div>
               <small>{photos.length} / 6 ADDED</small>
             </div>
@@ -2476,10 +2477,10 @@ function CreateListingForm({
           </div>
           <button
             className="primary-action form-submit"
-            disabled={!listingType || submitted}
+            disabled={!listingType || submitted || busy}
             type="submit"
           >
-            {submitted ? "Submitted · Pending Review" : "Submit for review"}
+            {busy ? "Uploading photos…" : submitted ? "Submitted · Pending Review" : "Submit for review"}
           </button>
         </div>
       </form>
@@ -3292,6 +3293,9 @@ function SellerListingsPage({
   const [editCondition, setEditCondition] = useState("");
   const [editLocation, setEditLocation] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editPhotos, setEditPhotos] = useState<PhotoPreview[]>([]);
+  const [editPhotoError, setEditPhotoError] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
 
   const visibleRecords =
     filter === "All" ? records : records.filter((record) => record.status === filter);
@@ -3304,6 +3308,16 @@ function SellerListingsPage({
     setEditCondition(record.listing.condition);
     setEditLocation(record.listing.location);
     setEditDescription(record.listing.description);
+    setEditPhotoError("");
+    setEditPhotos(
+      (record.listing.images?.length ? record.listing.images : [record.listing.image])
+        .filter((url) => url && !url.startsWith("data:image/svg"))
+        .map((url, index) => ({
+          id: `existing-${record.listing.id}-${index}`,
+          name: `Photo ${index + 1}`,
+          url,
+        })),
+    );
   };
 
   const requestEdit = (record: SellerListingRecord) => {
@@ -3344,26 +3358,65 @@ function SellerListingsPage({
     setConfirming(null);
   };
 
+  const addEditPhotos = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    setEditPhotoError("");
+    if (editPhotos.length + files.length > 6) {
+      setEditPhotoError(`You can upload up to 6 photos. ${6 - editPhotos.length} slots remain.`);
+      event.target.value = "";
+      return;
+    }
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    if (imageFiles.length !== files.length) {
+      setEditPhotoError("Only image files can be uploaded.");
+    }
+    setEditPhotos((current) => [
+      ...current,
+      ...imageFiles.map((file, index) => ({
+        id: `${file.name}-${file.lastModified}-${index}`,
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file,
+      })),
+    ]);
+    event.target.value = "";
+  };
+
+  const removeEditPhoto = (photo: PhotoPreview) => {
+    if (photo.file) URL.revokeObjectURL(photo.url);
+    setEditPhotos((current) => current.filter((item) => item.id !== photo.id));
+    setEditPhotoError("");
+  };
+
   const saveEdit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!editing) return;
-    void api
-      .updateListingDetails(editing.listing.id, {
-        title: editTitle.trim(),
-        category: editCategory,
-        condition: editCondition,
-        location: editLocation,
-        description: editDescription.trim(),
-        resubmit: editing.status === "Rejected",
-      })
-      .then(() => onRefresh())
-      .catch((err) => onAction(err instanceof Error ? err.message : "Could not update listing."));
-    onAction(
-      editing.status === "Rejected"
-        ? `${editTitle} resubmitted with status Pending`
-        : `${editTitle} updated`,
-    );
-    setEditing(null);
+    if (!editing || editBusy) return;
+    setEditBusy(true);
+    void (async () => {
+      try {
+        const photoUrls = await api.uploadListingPhotos(editPhotos);
+        await api.updateListingDetails(editing.listing.id, {
+          title: editTitle.trim(),
+          category: editCategory,
+          condition: editCondition,
+          location: editLocation,
+          description: editDescription.trim(),
+          photos: photoUrls,
+          resubmit: editing.status === "Rejected",
+        });
+        await onRefresh();
+        onAction(
+          editing.status === "Rejected"
+            ? `${editTitle} resubmitted with status Pending`
+            : `${editTitle} updated`,
+        );
+        setEditing(null);
+      } catch (err) {
+        onAction(err instanceof Error ? err.message : "Could not update listing.");
+      } finally {
+        setEditBusy(false);
+      }
+    })();
   };
 
   const statusOptions: Array<"All" | SellerListingStatus> = [
@@ -3595,13 +3648,49 @@ function SellerListingsPage({
                   required
                 />
               </label>
+              <div className="wide">
+                <small className="edit-photos-label">Photos · first is cover · existing Unsplash URLs stay until you replace them</small>
+                <div className="photo-upload-grid edit-photo-grid">
+                  {editPhotos.map((photo, index) => (
+                    <div className="photo-preview" key={photo.id}>
+                      <img src={photo.url} alt={`${photo.name}`} />
+                      {index === 0 && <span>Cover</span>}
+                      <button
+                        type="button"
+                        onClick={() => removeEditPhoto(photo)}
+                        aria-label={`Remove ${photo.name}`}
+                      >
+                        <Icon name="x" size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  {editPhotos.length < 6 && (
+                    <label className="photo-upload">
+                      <Icon name="plus" size={22} />
+                      <strong>Add photos</strong>
+                      <small>JPG, PNG or WEBP</small>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        onChange={addEditPhotos}
+                      />
+                    </label>
+                  )}
+                </div>
+                {editPhotoError && <p className="form-error photo-error">{editPhotoError}</p>}
+              </div>
             </div>
             <div className="confirm-actions">
               <button type="button" className="secondary-action" onClick={() => setEditing(null)}>
                 Cancel
               </button>
-              <button className="primary-action">
-                {editing.status === "Rejected" ? "Save & resubmit" : "Save changes"}
+              <button className="primary-action" disabled={editBusy}>
+                {editBusy
+                  ? "Uploading photos…"
+                  : editing.status === "Rejected"
+                    ? "Save & resubmit"
+                    : "Save changes"}
               </button>
             </div>
           </form>
