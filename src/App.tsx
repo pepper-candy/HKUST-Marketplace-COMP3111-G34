@@ -165,11 +165,53 @@ function Logo() {
   );
 }
 
+function isUsableListingPhoto(src?: string) {
+  return Boolean(src) && !src.startsWith("data:image/svg");
+}
+
+function ListingPhoto({
+  src,
+  alt,
+  onLoad,
+  onError,
+}: {
+  src?: string;
+  alt: string;
+  onLoad?: () => void;
+  onError?: () => void;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!isUsableListingPhoto(src) || failed) {
+    return (
+      <div className="listing-photo-empty" role="img" aria-label="No preview available.">
+        <span>No preview available.</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onLoad={onLoad}
+      onError={() => {
+        setFailed(true);
+        onError?.();
+      }}
+    />
+  );
+}
+
 function ListingCard({ listing, onOpen }: { listing: Listing; onOpen: () => void }) {
   return (
     <article className="listing-card" onClick={onOpen}>
       <div className="listing-image">
-        <img src={listing.image} alt={listing.title} />
+        <ListingPhoto src={listing.image} alt={listing.title} />
         <span className={`type-badge ${listing.type.replace(" ", "-").toLowerCase()}`}>
           {listing.type}
         </span>
@@ -362,7 +404,7 @@ function DetailModal({
     listing.images?.length ? listing.images : listing.image ? [listing.image] : []
   ).slice(0, 6);
   const [photoIndex, setPhotoIndex] = useState(0);
-  const [imageLoading, setImageLoading] = useState(true);
+  const [imageLoading, setImageLoading] = useState(() => isUsableListingPhoto(photos[0]));
   const [detailLoading, setDetailLoading] = useState(true);
   const [actionOpen, setActionOpen] = useState(false);
   const [offerPrice, setOfferPrice] = useState("");
@@ -388,7 +430,7 @@ function DetailModal({
 
   const selectPhoto = (index: number) => {
     if (index === photoIndex) return;
-    setImageLoading(true);
+    setImageLoading(isUsableListingPhoto(photos[index]));
     setPhotoIndex(index);
   };
 
@@ -491,7 +533,7 @@ function DetailModal({
             <>
               <div className={`detail-photo ${imageLoading ? "is-loading" : ""}`}>
                 {imageLoading && <span className="image-loader" aria-label="Loading image" />}
-                <img
+                <ListingPhoto
                   key={photos[photoIndex]}
                   src={photos[photoIndex]}
                   alt={`${listing.title}, photo ${photoIndex + 1} of ${photos.length}`}
@@ -532,17 +574,13 @@ function DetailModal({
                     aria-label={`View photo ${index + 1}`}
                     aria-current={index === photoIndex}
                   >
-                    <img src={photo} alt="" />
+                    <ListingPhoto src={photo} alt="" />
                   </button>
                 ))}
               </div>
             </>
           ) : (
-            <div className="photo-empty">
-              <Icon name="grid" size={28} />
-              <strong>No photos available</strong>
-              <span>The seller has not added item photos yet.</span>
-            </div>
+            <ListingPhoto alt="No preview available." />
           )}
         </div>
         <div className="detail-content">
