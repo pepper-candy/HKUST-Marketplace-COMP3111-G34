@@ -11,7 +11,8 @@ COMP3111 F2026, Group 34, Non-Honors. Source of truth: `F2026 Project Tasks - HK
 - [x] Official `@supabase/supabase-js` client (`VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` only)
 - [x] Replace in-memory/mock data with Supabase reads/writes (keep existing UI)
 - [x] README + `.env.example` (setup, password rules, admin seed steps)
-- [ ] Apply SQL in the Supabase Dashboard SQL Editor (no CLI/MCP in this environment)
+- [x] Apply SQL in the Supabase Dashboard SQL Editor
+- [x] Seed `admin@ust.hk` in Authentication → Users (password not stored in the repo)
 
 ## Constraints
 
@@ -56,4 +57,4 @@ Photos persist as data URLs in `listings.photos` (no Storage package).
 
 ## Apply SQL
 
-No Supabase MCP; no linked CLI. After the SQL file is in the repo: Dashboard → SQL Editor → paste `supabase/001_schema.sql` → Run. Then create the admin Auth user (see README).
+Done: schema run in the Dashboard SQL Editor; admin Auth user `admin@ust.hk` created (see README for sign-in). Password is not in this repo.

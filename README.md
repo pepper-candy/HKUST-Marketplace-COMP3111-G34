@@ -15,14 +15,14 @@ Confirm-password is checked only in the browser. Passwords are hashed by Supabas
 
 ## Setup
 
-1. Install dependencies (`npm install` or `pnpm install`).
+1. Install dependencies (`npm install`). Use npm only — do not add a `pnpm-lock.yaml` (Vercel will pick pnpm and CI will fail).
 2. Copy `.env.example` to `.env.local` and set:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_PUBLISHABLE_KEY` (publishable / anon key only — never a `service_role` / `sb_secret` key)
 3. Apply the schema: Supabase Dashboard → **SQL Editor** → paste `supabase/001_schema.sql` → **Run**.
 4. Seed the admin Auth user (see below).
 5. In Authentication → Providers → Email, turn **off** “Confirm email” for local/demo grading so registration can sign in immediately.
-6. Start the app with `npm run dev` (or `pnpm dev`).
+6. Start the app with `npm run dev`.
 
 ## Seed the admin account
 

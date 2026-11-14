@@ -28,7 +28,7 @@ Thumbs.db
 *.tsbuildinfo
 vite.config.*.timestamp-*
 
-# Figma Make local/agent state (not app source)
-/.figma/design-context/
+# Figma Make (not needed for GitHub / Vercel)
+.figma/
 /.plugins/
 /.opencode-skills/

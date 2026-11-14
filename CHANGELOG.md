@@ -55,13 +55,19 @@ Env vars (`.env.local`, gitignored):
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY` — **publishable/anon only**. Never put `service_role` / `sb_secret` in the frontend.
 
-### Not done yet
+### Done after this session
 
-- [ ] Apply `supabase/001_schema.sql` in the Supabase SQL Editor (not applied from this machine).
-- [ ] Seed `admin@ust.hk` in Authentication → Users (see `README.md`).
-- [ ] Turn **off** Email confirmations for local/demo grading.
+- [x] Applied `supabase/001_schema.sql` in the SQL Editor
+- [x] Seeded Auth user `admin@ust.hk` (password kept out of git)
 
-Until those three are done, register/login against the cloud project will fail.
+### Deploy
+
+- Deleted leftover Figma `pnpm-lock.yaml` so Vercel uses npm + `package-lock.json`.
+- Dropped `.figma/` (Figma Make tooling). Slimmed `vite.config.ts` and filled `index.html` so the production build no longer imports it.
+
+### Optional / check
+
+- [ ] Authentication → Providers → Email: **Confirm email** off for local/demo grading, so buyer/seller registration can sign in immediately.
 
 ### What we did *not* do
 
