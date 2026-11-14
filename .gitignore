@@ -28,6 +28,9 @@ Thumbs.db
 *.tsbuildinfo
 vite.config.*.timestamp-*
 
+# local photo probes (not part of the app)
+.tmp-photos/
+
 # Figma Make (not needed for GitHub / Vercel)
 .figma/
 /.plugins/

@@ -115,6 +115,7 @@ export type SellerReview = {
   rating: number;
   text: string;
   buyer: string;
+  sellerUsername: string;
   date: string;
   listing: Listing;
   reply?: string;
@@ -427,6 +428,36 @@ function ratingSummary(ratings: RatingRow[], sellerId: string) {
   return { average, count: visible.length };
 }
 
+function placeholderListing(sellerUsername: string, title = "Completed deal"): Listing {
+  return {
+    id: 0,
+    title,
+    seller: sellerUsername,
+    category: "",
+    type: "Sell",
+    condition: "",
+    location: "",
+    posted: "",
+    image: PLACEHOLDER_IMAGE,
+    description: "",
+  };
+}
+
+function listingForRating(
+  rating: RatingRow,
+  offers: OfferRow[],
+  listingUiById: Map<number, Listing>,
+  profiles: ProfileRow[],
+): Listing {
+  const sellerUsername = usernameOf(profiles, rating.seller_id);
+  const offer = offers.find((row) => row.id === rating.offer_id);
+  if (offer) {
+    const listing = listingUiById.get(offer.listing_id);
+    if (listing) return listing;
+  }
+  return placeholderListing(sellerUsername);
+}
+
 function mapListing(row: ListingRow, profiles: ProfileRow[], ratings: RatingRow[]): Listing {
   const photos = (row.photos ?? []).filter(Boolean);
   const seller = profiles.find((profile) => profile.id === row.seller_id);
@@ -734,31 +765,23 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
 
   const sellerReviews: SellerReview[] = ratings
     .filter((rating) => !rating.hidden)
-    .map((rating) => ({
-      id: rating.id,
-      rating: rating.stars,
-      text: rating.review_text ?? "",
-      buyer: usernameOf(profiles, rating.buyer_id),
-      date: formatDateTime(rating.created_at),
-      listing: listingUiById.get(
-        offers.find((offer) => offer.id === rating.offer_id)?.listing_id ?? -1,
-      ) ?? {
-        id: 0,
-        title: "Listing",
-        seller: me.username,
-        category: "",
-        type: "Sell",
-        condition: "",
-        location: "",
-        posted: "",
-        image: PLACEHOLDER_IMAGE,
-        description: "",
-      },
-      reply: rating.seller_reply ?? undefined,
-      repliedAt: rating.replied_at ? formatDateTime(rating.replied_at) : undefined,
-      flagged: rating.flagged,
-      flagReason: rating.flag_reason ?? undefined,
-    }));
+    .map((rating) => {
+      const sellerUsername = usernameOf(profiles, rating.seller_id);
+      const listing = listingForRating(rating, offers, listingUiById, profiles);
+      return {
+        id: rating.id,
+        rating: rating.stars,
+        text: rating.review_text ?? "",
+        buyer: usernameOf(profiles, rating.buyer_id),
+        sellerUsername,
+        date: formatDateTime(rating.created_at),
+        listing: { ...listing, seller: listing.seller || sellerUsername },
+        reply: rating.seller_reply ?? undefined,
+        repliedAt: rating.replied_at ? formatDateTime(rating.replied_at) : undefined,
+        flagged: rating.flagged,
+        flagReason: rating.flag_reason ?? undefined,
+      };
+    });
 
   const systemListings: SystemListing[] = listingRows.map((row) => ({
     id: row.id,

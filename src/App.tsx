@@ -741,7 +741,9 @@ function SellerProfileModal({
   const account = users.find((user) => user.username === seller && user.role === "Seller");
   const ratingSummary = sellerRatings.find((rating) => rating.seller === seller);
   const profileListings = listings.filter((listing) => listing.seller === seller);
-  const profileReviews = reviews.filter((review) => review.listing.seller === seller);
+  const profileReviews = reviews.filter(
+    (review) => review.sellerUsername === seller || review.listing.seller === seller,
+  );
   const reviewAverage = profileReviews.length
     ? profileReviews.reduce((sum, review) => sum + review.rating, 0) / profileReviews.length
     : 0;
@@ -3664,6 +3666,7 @@ type SellerReview = {
   rating: number;
   text: string;
   buyer: string;
+  sellerUsername: string;
   date: string;
   listing: Listing;
   reply?: string;
@@ -4628,7 +4631,11 @@ function RatingsOverviewPage({
             </div>
             <div className="rating-detail-reviews">
               {reviews
-                .filter((review) => review.listing.seller === selected.seller)
+                .filter(
+                  (review) =>
+                    review.sellerUsername === selected.seller ||
+                    review.listing.seller === selected.seller,
+                )
                 .map((review) => (
                   <article key={review.id}>
                     <span>
@@ -5062,7 +5069,10 @@ function SupportingPage({
   if (page === "Reviews") {
     return (
       <SellerReviewsPage
-        reviews={sellerReviews.filter((review) => review.listing.seller === currentUsername)}
+        reviews={sellerReviews.filter(
+          (review) =>
+            review.sellerUsername === currentUsername || review.listing.seller === currentUsername,
+        )}
         onReviewsChange={onSellerReviewsChange}
         onOpenListing={onOpenListing}
         onAction={onAction}
@@ -6022,11 +6032,10 @@ export default function App() {
               .join(" ")
           }
           users={users}
-          reviews={
-            sellerReviews.filter((review) => review.listing.seller === profileSeller).length
-              ? sellerReviews
-              : sellerReviews
-          }
+          reviews={sellerReviews.filter(
+            (review) =>
+              review.sellerUsername === profileSeller || review.listing.seller === profileSeller,
+          )}
           listings={liveListings.filter((listing) => listing.seller === profileSeller)}
           sellerRatings={sellerRatings}
           onClose={() => setProfileSeller(null)}
