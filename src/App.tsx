@@ -2756,18 +2756,51 @@ type NotificationItem = {
   action?: string;
 };
 
+function listingFromNotification(message: string, listings: Listing[]) {
+  const quoted = [...message.matchAll(/[“"]([^”"]+)[”"]/g)].map((match) => match[1].trim());
+  for (const title of quoted) {
+    const hit = listings.find((listing) => listing.title === title);
+    if (hit) return hit;
+  }
+  return listings.find((listing) => message.includes(listing.title));
+}
+
+function pageForNotificationAction(action: string, role: Role) {
+  if (action === "Review listing") return role === "Admin" ? "Listing Review" : "My Listings";
+  if (action === "View listing") {
+    return role === "Admin" ? "All Listings" : role === "Seller" ? "My Listings" : "Browse";
+  }
+  if (action === "View offer" || action === "Review request") {
+    return role === "Seller" ? "Offers / Requests" : "My Deals";
+  }
+  if (action === "View deal" || action === "View deals") {
+    return role === "Admin" ? "All Deals" : "My Deals";
+  }
+  if (action === "View rating" || action === "View reviews") {
+    return role === "Admin" ? "Ratings Overview" : role === "Seller" ? "Reviews" : "Rate Sellers";
+  }
+  if (action === "View users") return "All Users";
+  return null;
+}
+
 function NotificationBoard({
   role,
   items,
+  listings,
   readIds,
   onReadIdsChange,
-  onAction,
+  onOpenListing,
+  onChatListing,
+  onNavigate,
 }: {
   role: Role;
   items: NotificationItem[];
+  listings: Listing[];
   readIds: number[];
   onReadIdsChange: (ids: number[]) => void;
-  onAction: (message: string) => void;
+  onOpenListing: (listing: Listing) => void;
+  onChatListing: (listing: Listing, participant?: string) => void;
+  onNavigate: (page: string) => void;
 }) {
   const [filter, setFilter] = useState("All");
   const notifications = items;
@@ -2875,14 +2908,23 @@ function NotificationBoard({
                           {unread && <span className="unread-dot" aria-label="Unread" />}
                           {item.action && (
                             <button
+                              type="button"
+                              className="notification-action"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 markRead(item.id);
-                                onAction(`${item.action}: ${item.title}`);
+                                const listing = listingFromNotification(item.message, listings);
+                                const nextPage = pageForNotificationAction(item.action!, role);
+                                if (item.action === "Open chat" && listing) {
+                                  onChatListing(listing);
+                                  return;
+                                }
+                                if (nextPage) onNavigate(nextPage);
+                                if (listing) onOpenListing(listing);
                               }}
                             >
                               {item.action}
-                              <Icon name="chevron" size={14} />
+                              <Icon name="chevron" size={16} />
                             </button>
                           )}
                         </div>
@@ -5261,6 +5303,7 @@ function SupportingPage({
   onRefresh,
   onOpenListing,
   onChatListing,
+  onNavigate,
   buyerDealState,
   onBuyerDealsChange,
   sellerRequests,
@@ -5295,6 +5338,7 @@ function SupportingPage({
   onRefresh: () => Promise<unknown>;
   onOpenListing: (listing: Listing) => void;
   onChatListing: (listing: Listing, participant?: string) => void;
+  onNavigate: (page: string) => void;
   buyerDealState: BuyerDeal[];
   onBuyerDealsChange: (deals: BuyerDeal[]) => void;
   sellerRequests: SellerRequest[];
@@ -5373,13 +5417,22 @@ function SupportingPage({
   }
 
   if (page === "Notifications") {
+    const listings = [
+      ...liveListings,
+      ...reviewListings.map((record) => record.listing),
+      ...sellerListingRecords.map((record) => record.listing),
+      ...systemListings.map((record) => record.listing),
+    ].filter((listing, index, all) => all.findIndex((item) => item.id === listing.id) === index);
     return (
       <NotificationBoard
         role={role}
         items={notifications}
+        listings={listings}
         readIds={notificationReads}
         onReadIdsChange={onNotificationReadsChange}
-        onAction={onAction}
+        onOpenListing={onOpenListing}
+        onChatListing={onChatListing}
+        onNavigate={onNavigate}
       />
     );
   }
@@ -6302,6 +6355,7 @@ export default function App() {
               onRefresh={refresh}
               onOpenListing={setSelected}
               onChatListing={openChat}
+              onNavigate={setPage}
               buyerDealState={buyerDealState}
               onBuyerDealsChange={setBuyerDealState}
               sellerRequests={sellerRequests}

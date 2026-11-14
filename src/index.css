@@ -3840,7 +3840,7 @@ footer > span {
   line-height: 1.45;
 }
 .notification-side {
-  min-width: 105px;
+  min-width: 128px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -3853,16 +3853,25 @@ footer > span {
   background: var(--navy);
   box-shadow: 0 0 0 3px #e1ebf3;
 }
-.notification-side button {
-  display: flex;
+.notification-action {
+  min-height: 36px;
+  padding: 0 12px;
+  display: inline-flex;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid #9bafc0;
+  border-radius: 8px;
+  background: white;
   color: var(--navy);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
 }
-.notification-side button:hover {
-  text-decoration: underline;
+.notification-action:hover {
+  border-color: var(--navy);
+  background: #eef3f7;
 }
 .notification-empty {
   padding: 60px;
@@ -6443,6 +6452,20 @@ textarea:focus-visible {
     align-items: center;
     justify-content: flex-end;
     gap: 9px;
+  }
+  .notification-action {
+    min-height: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 8px;
+    gap: 3px;
+    box-shadow: none;
+  }
+  .notification-action:hover {
+    background: transparent;
+    text-decoration: underline;
   }
   .unread-dot {
     position: absolute;
