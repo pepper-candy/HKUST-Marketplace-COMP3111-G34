@@ -289,7 +289,11 @@ export const passwordRules = [
 
 export function authEmailFromUsername(username: string) {
   const normalized = username.trim().toLowerCase();
-  return normalized.includes("@") ? normalized : `${normalized}@users.hkust-marketplace.local`;
+  if (normalized.includes("@")) return normalized;
+  // Auth rejects .local / domains with no MX (email_address_invalid). gmail.com has MX;
+  // plus-addressing keeps each username unique. Login still uses username via resolve_login_email.
+  const local = normalized.replace(/[^a-z0-9._+-]/g, "") || "user";
+  return `g34mp+${local}@gmail.com`;
 }
 
 function throwIf(error: { message: string } | null) {
@@ -494,7 +498,15 @@ export async function registerAccount(input: {
       },
     },
   });
-  throwIf(error);
+  if (error) {
+    const code = "code" in error ? String(error.code) : "";
+    if (code === "email_address_invalid" || /email address .* invalid/i.test(error.message)) {
+      throw new Error(
+        "Supabase rejected the sign-up email. Use a username without @ (for example mei.wong).",
+      );
+    }
+    throw new Error(error.message);
+  }
   await supabase.auth.signOut();
 }
 

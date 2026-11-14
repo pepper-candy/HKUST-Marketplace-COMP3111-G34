@@ -1,0 +1,15 @@
+role,username,password,full_name,campus,demo_use
+admin,admin@ust.hk,(dashboard password — not in git),Marketplace Admin,n/a,Approve pending listings; hide the flagged review; check the reported listing
+seller,kai.lam,KaiLam26Hkust,Kai Lam,"Library Entrance; Academic Building Atrium",Course notes shop — sold notes; pending OS-book offer; rejected lab manual to resubmit
+seller,sofiapeng,Sofia26Hkust,Sofia Peng,"Hall IX Lobby; Library Entrance",Electronics — reserved calculator; sold mouse; live USB hub; lendable monitor arm
+seller,noman.chow,Noman26Hkust,Noman Chow,"Hall I Lobby; Hall IX Lobby",Dorm goods — live lamp; completed laundry-rack giveaway; pending mini-fridge for admin
+seller,aisha.rahman,Aisha26Hkust,Aisha Rahman,"Academic Building Atrium; Seafront Cafeteria",Fashion + extras — sold coat; live tote giveaway (claim this in the demo); reported listing
+seller,tomo.sato,Tomo26Hkust,Tomo Sato,"North Gate; South Gate",Outdoors — tent currently lent; returned badminton set; live hiking poles
+buyer,wong.mei,MeiWong26Hkust,Wong Mei,Hall I,Power buyer — completed notes purchase (left a 5★ review); countered USB-hub offer; chat on OS book
+buyer,jason.ng,Jason26Hkust,Jason Ng,Hall II,Claimed the laundry rack; pending offer on the desk lamp; chatty
+buyer,priya.sharma,Priya26Hkust,Priya Sharma,Hall III,Accepted calculator purchase (reserved); returned badminton borrow (5★)
+buyer,lucas.ho,Lucas26Hkust,Lucas Ho,Hall IV,Pending offer on COMP3511 book; declined hiking poles; searchable chat
+buyer,emily.wu,Emily26Hkust,Emily Wu,Hall VI,Bought the mouse (4★); quieter account
+buyer,david.kwok,David26Hkust,David Kwok,Hall VII,Active tent borrow — return it or wait for auto-return
+buyer,hana.kim,Hana26Hkust,Hana Kim,Hall VIII,New student — only a pending monitor-arm borrow; good “empty-ish” buyer
+buyer,brian.lau,Brian26Hkust,Brian Lau,Off-campus,Bought the winter coat (2★; flagged); reported Aisha’s duplicate listing

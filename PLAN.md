@@ -13,7 +13,9 @@ COMP3111 F2026, Group 34, Non-Honors. Source of truth: `F2026 Project Tasks - HK
 - [x] README + `.env.example` (setup, password rules, admin seed steps)
 - [x] Apply SQL in the Supabase Dashboard SQL Editor
 - [x] Seed `admin@ust.hk` in Authentication → Users (password not stored in the repo)
-- [ ] Apply `supabase/002_fix_rls_recursion.sql` (listings ↔ offers policy loop; admin login 500)
+- [x] Apply `supabase/002_fix_rls_recursion.sql` (listings ↔ offers policy loop; admin login 500)
+- [x] Apply `supabase/003_demo_seed.sql` and use `demo/accounts.csv` for the live demo
+- [x] Authentication → Email: Confirm email off (no `004` SQL — cannot trigger on `auth.users`)
 
 ## Constraints
 
@@ -45,7 +47,7 @@ RPCs: `resolve_login_email`, `increment_listing_views`, `submit_offer`, `submit_
 
 ## Auth
 
-- Buyer/seller register + login. Auth email is the username if it contains `@`, otherwise `{username}@users.hkust-marketplace.local`.
+- Buyer/seller register + login. Auth email is the username if it contains `@`, otherwise `g34mp+{username}@gmail.com` (Supabase MX check rejects `.local`).
 - Login: RPC resolves email → `signInWithPassword` → profile role must match the portal.
 - Admin: no public sign-up. Dashboard user `admin@ust.hk`; trigger sets `role = admin`.
 - Password rules (UI + README): 8+ characters, one uppercase, one lowercase, one number.

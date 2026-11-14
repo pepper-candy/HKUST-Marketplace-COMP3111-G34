@@ -5866,10 +5866,10 @@ export default function App() {
       <aside className="sidebar">
         <Logo />
         <div className="role-switcher">
-          <span>SIGNED IN ROLE</span>
-          <select value={role} disabled aria-label={`Signed in as ${role}`}>
-            <option>{role}</option>
-          </select>
+          <span>SIGNED IN AS</span>
+          <p>
+            {role === "Admin" ? currentUsername : `@${currentUsername}`} ({role})
+          </p>
         </div>
         <nav>
           {navByRole[role].map((item) => (

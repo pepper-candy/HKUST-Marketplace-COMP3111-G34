@@ -46,7 +46,7 @@ Rules encoded in SQL, not only the UI:
 - Buyer and seller: register + login with **username** + password.
 - Confirm-password is **client-side only**.
 - Password rules: 8+ characters, one uppercase, one lowercase, one number.
-- Username without `@` is stored in Auth as `{username}@users.hkust-marketplace.local`.
+- Username without `@` is stored in Auth as `g34mp+{username}@gmail.com` (`.local` is rejected by Auth MX checks).
 - After login, `profiles.role` must match the portal (buyer cannot open seller/admin).
 - Admin username: `admin@ust.hk`. Create that Auth user in the dashboard (no password in git).
 
@@ -68,6 +68,14 @@ Password was accepted. Loading listings/offers then 500’d with `infinite recur
 - `001_schema.sql` updated the same way for a clean install.
 - Login now awaits the snapshot so a future API error shows on the form.
 
+### Buyer/Seller sign-up 400
+
+Auth returned `email_address_invalid` for `{username}@users.hkust-marketplace.local` (no MX). New sign-ups use `g34mp+{username}@gmail.com`. Turn **Confirm email** off in the Dashboard (SQL cannot add a trigger on `auth.users`). `003` no longer `ALTER`s `auth.users` (that 42501’d).
+
+### Demo seed
+
+Optional SQL `supabase/003_demo_seed.sql` plus `demo/accounts.csv`: 5 sellers, 8 buyers, 19 listings, mixed deal/chat/rating history. Admin password still not in git. Re-run wipes only those 13 demo UUIDs.
+
 ### Deploy
 
 - Deleted leftover Figma `pnpm-lock.yaml` so Vercel uses npm + `package-lock.json`.
@@ -75,12 +83,12 @@ Password was accepted. Loading listings/offers then 500’d with `infinite recur
 
 ### Optional / check
 
-- [ ] Authentication → Providers → Email: **Confirm email** off for local/demo grading, so buyer/seller registration can sign in immediately.
+- [x] Authentication → Providers → Email: **Confirm email** off. Dropped unused `004_autoconfirm_signup.sql`.
 
 ### What we did *not* do
 
 - No `npm run dev` / `npm run build` / type-check in this session
 - No commit, push, or merge
-- No mock seed of listings or student accounts
+- No mock seed until `003_demo_seed.sql` (run that in the SQL Editor when you want the demo CSV logins)
 - No extra npm packages besides `@supabase/supabase-js`
 - No service-role key in the app or in git

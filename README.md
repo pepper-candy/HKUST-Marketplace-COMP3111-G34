@@ -11,7 +11,7 @@ Registration and profile password updates require all of:
 - One lowercase letter
 - One number
 
-Confirm-password is checked only in the browser. Passwords are hashed by Supabase Auth and are never stored in Postgres or in this repository.
+Confirm-password is checked only in the browser. Passwords are hashed by Supabase Auth. The real admin password is not in git. Shared **demo** student passwords are in `demo/accounts.csv` (course demo only).
 
 ## Setup
 
@@ -22,8 +22,10 @@ Confirm-password is checked only in the browser. Passwords are hashed by Supabas
 3. Apply the schema: Supabase Dashboard → **SQL Editor** → paste `supabase/001_schema.sql` → **Run**.
 4. If `001` was already applied before the listings/offers RLS fix, also run `supabase/002_fix_rls_recursion.sql` (do **not** re-run `001`).
 5. Seed the admin Auth user (see below).
-6. In Authentication → Providers → Email, turn **off** “Confirm email” for local/demo grading so registration can sign in immediately.
+6. In Authentication → Providers → Email, turn **off** “Confirm email” so Buyer/Seller registration can sign in immediately.
 7. Start the app with `npm run dev`.
+
+Sign-up does **not** use a real inbox. Usernames become Auth emails `g34mp+{username}@gmail.com` (Supabase rejects `.local` addresses with `email_address_invalid`). Login is still **username + password** on the matching Buyer/Seller portal.
 
 ## Seed the admin account
 
@@ -36,6 +38,26 @@ Admin has **no** public registration screen. Create the user in the dashboard (d
 5. Save. A database trigger creates `profiles.role = admin` for this email.
 
 Sign in through **Admin Login** with username `admin@ust.hk` and that dashboard password.
+
+## Demo seed (buyers, sellers, listings)
+
+For a graded demo the marketplace should not be empty. After `001` (and `002` if you already applied `001` before the RLS fix):
+
+1. SQL Editor → paste `supabase/003_demo_seed.sql` → **Run**. Safe to re-run; it only replaces the 13 demo accounts.
+2. Log in from `demo/accounts.csv`. Use the **Buyer** or **Seller** portal that matches the row. Usernames have no `@` except admin.
+
+Counts (meant to look like a couple of weeks on campus, not a full year):
+
+| | Count | Why |
+|---|---|---|
+| Sellers | 5 | Textbooks, electronics, dorm, fashion, outdoors — every listing type |
+| Buyers | 8 | Mix of halls + one off-campus; one almost-new account (`hana.kim`) |
+| Listings | 19 | Live browse, 2 pending (admin), 1 rejected, 2 sold, 1 reserved, 1 lent, 1 given, 1 reportable scam, live giveaway to claim |
+| Deals | 12 | Completed / pending / countered / declined / active borrow / returned |
+| Chats | 4 threads | Including searchable “solution sketches” |
+| Ratings | 4 | 5★ with reply, 4★, returned-borrow 5★, flagged 2★ |
+
+Suggested live path: admin approves the fridge + MATH notes → buyer `jason.ng` claims the tote giveaway → seller `sofiapeng` accepts `hana.kim`’s monitor-arm borrow.
 
 ## User deletion
 

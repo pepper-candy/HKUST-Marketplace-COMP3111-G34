@@ -475,22 +475,13 @@
   letter-spacing: 0.14em;
   margin: 0 0 7px 9px;
 }
-.role-switcher select {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f9fafb;
+.role-switcher p {
+  margin: 0;
   padding: 9px 11px;
   color: var(--navy);
   font-weight: 600;
   font-size: 13px;
-  outline: none;
-}
-.role-switcher select:disabled {
-  cursor: default;
-  color: var(--navy);
-  opacity: 1;
-  background: #f3f6f8;
+  line-height: 1.35;
 }
 .sidebar nav {
   display: flex;
