@@ -389,12 +389,14 @@ function Browse({
 
 function DetailModal({
   listing,
+  role,
   onClose,
   onAction,
   onChat,
   onViewSeller,
 }: {
   listing: Listing;
+  role: Role;
   onClose: () => void;
   onAction: (message: string) => void;
   onChat: () => void;
@@ -412,21 +414,43 @@ function DetailModal({
   const [endDate, setEndDate] = useState("");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [adminStep, setAdminStep] = useState<"approve" | "reject" | "remove" | null>(null);
+  const [adminReason, setAdminReason] = useState("");
+  const [adminError, setAdminError] = useState("");
 
   const [viewCount, setViewCount] = useState(listing.views ?? 0);
+  const [photoZoomed, setPhotoZoomed] = useState(false);
+  const currentPhoto = photos[photoIndex];
+  const canZoomPhoto = isUsableListingPhoto(currentPhoto);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDetailLoading(false), 260);
-    const handleKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    document.addEventListener("keydown", handleKey);
-    void api.incrementViews(listing.id).then((count) => {
-      if (typeof count === "number") setViewCount(count);
-    });
+    setAdminStep(null);
+    setAdminReason("");
+    setAdminError("");
+    setPhotoZoomed(false);
+    const timer = window.setTimeout(() => {
+      setDetailLoading(false);
+      void api.incrementViews(listing.id).then((count) => {
+        if (typeof count === "number") setViewCount(count);
+      });
+    }, 260);
     return () => {
       window.clearTimeout(timer);
-      document.removeEventListener("keydown", handleKey);
     };
-  }, [listing.id, onClose]);
+  }, [listing.id]);
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (photoZoomed) {
+        setPhotoZoomed(false);
+        return;
+      }
+      onClose();
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [photoZoomed, onClose]);
 
   const selectPhoto = (index: number) => {
     if (index === photoIndex) return;
@@ -492,6 +516,25 @@ function DetailModal({
     setActionOpen(true);
   };
 
+  const runAdminModeration = (action: "approve" | "reject" | "remove") => {
+    if (action !== "approve" && adminReason.trim().length < 10) {
+      setAdminError("Provide a clear reason of at least 10 characters.");
+      return;
+    }
+    setSubmitting(true);
+    setAdminError("");
+    void api
+      .moderateListing(listing.id, action, action === "approve" ? undefined : adminReason.trim())
+      .then(() => {
+        const verb = action === "approve" ? "approved" : action === "reject" ? "rejected" : "taken down";
+        onAction(`Listing ${verb}. @${listing.seller} was notified.`);
+      })
+      .catch((err) => {
+        setSubmitting(false);
+        setAdminError(err instanceof Error ? err.message : "Could not update listing.");
+      });
+  };
+
   if (detailLoading) {
     return (
       <div className="modal-backdrop" onMouseDown={onClose}>
@@ -517,6 +560,7 @@ function DetailModal({
   }
 
   return (
+    <>
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div
         className="detail-modal"
@@ -533,13 +577,30 @@ function DetailModal({
             <>
               <div className={`detail-photo ${imageLoading ? "is-loading" : ""}`}>
                 {imageLoading && <span className="image-loader" aria-label="Loading image" />}
-                <ListingPhoto
-                  key={photos[photoIndex]}
-                  src={photos[photoIndex]}
-                  alt={`${listing.title}, photo ${photoIndex + 1} of ${photos.length}`}
-                  onLoad={() => setImageLoading(false)}
-                  onError={() => setImageLoading(false)}
-                />
+                {canZoomPhoto ? (
+                  <button
+                    type="button"
+                    className="detail-photo-open"
+                    onClick={() => setPhotoZoomed(true)}
+                    aria-label="View full photo"
+                  >
+                    <ListingPhoto
+                      key={currentPhoto}
+                      src={currentPhoto}
+                      alt={`${listing.title}, photo ${photoIndex + 1} of ${photos.length}`}
+                      onLoad={() => setImageLoading(false)}
+                      onError={() => setImageLoading(false)}
+                    />
+                  </button>
+                ) : (
+                  <ListingPhoto
+                    key={currentPhoto}
+                    src={currentPhoto}
+                    alt={`${listing.title}, photo ${photoIndex + 1} of ${photos.length}`}
+                    onLoad={() => setImageLoading(false)}
+                    onError={() => setImageLoading(false)}
+                  />
+                )}
                 <span className={`type-badge ${listing.type.replace(" ", "-").toLowerCase()}`}>
                   {listing.type}
                 </span>
@@ -653,7 +714,7 @@ function DetailModal({
             </span>
           </button>
 
-          {actionOpen && listing.type !== "Give Away" && (
+          {role !== "Admin" && actionOpen && listing.type !== "Give Away" && (
             <form className="request-form" onSubmit={submitTypeAction}>
               <div className="request-form-heading">
                 <div>
@@ -717,43 +778,200 @@ function DetailModal({
             </form>
           )}
 
-          <div className="detail-actions">
-            <button className="primary-action" onClick={openAction} disabled={submitting}>
-              {submitting
-                ? "Sending..."
-                : listing.type === "Sell"
-                  ? "Send Offer / Bid"
-                  : listing.type === "Lend"
-                    ? "Request to Borrow"
-                    : "Claim Item"}
-              <Icon name="arrow" size={18} />
-            </button>
-            <button className="secondary-action" onClick={onChat}>
-              <Icon name="message" size={18} />
-              Chat
-            </button>
-          </div>
-          <button
-            className="report-link"
-            onClick={() => {
-              const reason = window.prompt(
-                "Why are you reporting this listing?",
-                "Inappropriate or unsafe listing",
-              );
-              if (!reason) return;
-              void api
-                .reportListing(listing.id, reason)
-                .then(() => onAction("Listing reported to administrators"))
-                .catch((err) =>
-                  onAction(err instanceof Error ? err.message : "Could not send report."),
-                );
-            }}
-          >
-            Report Listing
-          </button>
+          {role === "Admin" ? (
+            <>
+              {adminStep === "approve" && (
+                <div className="request-form">
+                  <div className="request-form-heading">
+                    <div>
+                      <strong>Approve this listing?</strong>
+                      <small>
+                        “{listing.title}” will become Available and @{listing.seller} will be
+                        notified.
+                      </small>
+                    </div>
+                    <button type="button" onClick={() => setAdminStep(null)} aria-label="Close">
+                      <Icon name="x" size={16} />
+                    </button>
+                  </div>
+                  {adminError && <p className="form-error">{adminError}</p>}
+                  <div className="detail-actions">
+                    <button
+                      type="button"
+                      className="secondary-action"
+                      onClick={() => setAdminStep(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="primary-action"
+                      disabled={submitting}
+                      onClick={() => runAdminModeration("approve")}
+                    >
+                      <Icon name="check" size={15} />
+                      {submitting ? "Approving…" : "Approve listing"}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {(adminStep === "reject" || adminStep === "remove") && (
+                <form
+                  className="request-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    runAdminModeration(adminStep);
+                  }}
+                >
+                  <div className="request-form-heading">
+                    <div>
+                      <strong>
+                        {adminStep === "reject" ? "Reject this listing?" : "Take down this listing?"}
+                      </strong>
+                      <small>@{listing.seller} will be notified with your written reason.</small>
+                    </div>
+                    <button type="button" onClick={() => setAdminStep(null)} aria-label="Close">
+                      <Icon name="x" size={16} />
+                    </button>
+                  </div>
+                  <label>
+                    Written reason <span>Required</span>
+                    <textarea
+                      rows={4}
+                      value={adminReason}
+                      onChange={(event) => {
+                        setAdminReason(event.target.value);
+                        setAdminError("");
+                      }}
+                      placeholder="Be specific and actionable..."
+                      autoFocus
+                    />
+                    <small>{adminReason.length} characters · minimum 10</small>
+                  </label>
+                  {adminError && <p className="form-error">{adminError}</p>}
+                  <div className="detail-actions">
+                    <button
+                      type="button"
+                      className="secondary-action"
+                      onClick={() => setAdminStep(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button className="destructive-action" disabled={submitting}>
+                      {submitting
+                        ? "Saving…"
+                        : adminStep === "reject"
+                          ? "Reject and notify"
+                          : "Take down and notify"}
+                    </button>
+                  </div>
+                </form>
+              )}
+              {!adminStep && listing.availability === "Pending review" && (
+                <div className="detail-actions">
+                  <button
+                    className="request-decline"
+                    onClick={() => {
+                      setAdminReason("");
+                      setAdminError("");
+                      setAdminStep("reject");
+                    }}
+                  >
+                    Reject
+                  </button>
+                  <button
+                    className="primary-action"
+                    onClick={() => {
+                      setAdminError("");
+                      setAdminStep("approve");
+                    }}
+                  >
+                    <Icon name="check" size={15} />
+                    Approve
+                  </button>
+                </div>
+              )}
+              {!adminStep &&
+                (listing.availability === "Available" || listing.availability === "Reserved") && (
+                  <div className="detail-actions">
+                    <button
+                      className="request-decline"
+                      onClick={() => {
+                        setAdminReason("");
+                        setAdminError("");
+                        setAdminStep("remove");
+                      }}
+                    >
+                      Take down
+                    </button>
+                  </div>
+                )}
+            </>
+          ) : (
+            <>
+              <div className="detail-actions">
+                <button className="primary-action" onClick={openAction} disabled={submitting}>
+                  {submitting
+                    ? "Sending..."
+                    : listing.type === "Sell"
+                      ? "Send Offer / Bid"
+                      : listing.type === "Lend"
+                        ? "Request to Borrow"
+                        : "Claim Item"}
+                  <Icon name="arrow" size={18} />
+                </button>
+                <button className="secondary-action" onClick={onChat}>
+                  <Icon name="message" size={18} />
+                  Chat
+                </button>
+              </div>
+              <button
+                className="report-link"
+                onClick={() => {
+                  const reason = window.prompt(
+                    "Why are you reporting this listing?",
+                    "Inappropriate or unsafe listing",
+                  );
+                  if (!reason) return;
+                  void api
+                    .reportListing(listing.id, reason)
+                    .then(() => onAction("Listing reported to administrators"))
+                    .catch((err) =>
+                      onAction(err instanceof Error ? err.message : "Could not send report."),
+                    );
+                }}
+              >
+                Report Listing
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
+    {photoZoomed && canZoomPhoto ? (
+      <div
+        className="photo-lightbox"
+        onMouseDown={() => setPhotoZoomed(false)}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Full listing photo"
+      >
+        <button
+          className="photo-lightbox-close"
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={() => setPhotoZoomed(false)}
+          aria-label="Close photo"
+        >
+          <Icon name="x" />
+        </button>
+        <img
+          src={currentPhoto}
+          alt={`${listing.title}, full photo ${photoIndex + 1} of ${photos.length}`}
+          onMouseDown={(event) => event.stopPropagation()}
+        />
+      </div>
+    ) : null}
+    </>
   );
 }
 
@@ -2708,11 +2926,13 @@ function ListingReviewPage({
   onRecordsChange,
   onAction,
   onRefresh,
+  onOpenListing,
 }: {
   records: ReviewListing[];
   onRecordsChange: (records: ReviewListing[]) => void;
   onAction: (message: string) => void;
   onRefresh: () => Promise<unknown>;
+  onOpenListing: (listing: Listing) => void;
 }) {
   const [filter, setFilter] = useState<"Pending Review" | "Approved" | "Rejected" | "All">(
     "Pending Review",
@@ -2762,7 +2982,7 @@ function ListingReviewPage({
         <div>
           <p className="eyebrow">ADMIN PORTAL</p>
           <h1>Listing review</h1>
-          <p>Review pending marketplace submissions before they go live.</p>
+          <p>Click a card to inspect photos. Approve or reject from the queue.</p>
         </div>
         <div className="admin-queue-count">
           <strong>{pendingCount}</strong>
@@ -2790,22 +3010,16 @@ function ListingReviewPage({
       {visibleRecords.length ? (
         <div className="review-list">
           {visibleRecords.map((record) => {
-            const photos = (
-              record.listing.images?.length ? record.listing.images : [record.listing.image]
-            ).slice(0, 3);
+            const photoCount = record.listing.images?.length ?? (record.listing.image ? 1 : 0);
             return (
-              <article className="review-card" key={record.id}>
+              <article
+                className="review-card"
+                key={record.id}
+                onClick={() => onOpenListing(record.listing)}
+              >
                 <div className="review-photos">
-                  {photos.map((photo, index) => (
-                    <img
-                      src={photo}
-                      alt={`${record.listing.title} photo ${index + 1}`}
-                      key={photo}
-                    />
-                  ))}
-                  {(record.listing.images?.length ?? 1) > 3 && (
-                    <span>+{(record.listing.images?.length ?? 1) - 3}</span>
-                  )}
+                  <ListingPhoto src={record.listing.image} alt={record.listing.title} />
+                  {photoCount > 1 && <span>{photoCount} photos</span>}
                 </div>
                 <div className="review-card-body">
                   <div className="review-title-row">
@@ -2823,13 +3037,6 @@ function ListingReviewPage({
                   </div>
                   <dl className="review-facts">
                     <div>
-                      <dt>Seller</dt>
-                      <dd>
-                        @{record.listing.seller}
-                        <small>{record.sellerFullName}</small>
-                      </dd>
-                    </div>
-                    <div>
                       <dt>Category</dt>
                       <dd>{record.listing.category}</dd>
                     </div>
@@ -2841,10 +3048,6 @@ function ListingReviewPage({
                       <dt>Meet-up</dt>
                       <dd>{record.listing.location}</dd>
                     </div>
-                    <div>
-                      <dt>Submitted</dt>
-                      <dd>{record.submitted}</dd>
-                    </div>
                   </dl>
                   {record.rejectionReason && (
                     <div className="rejection-note">
@@ -2852,24 +3055,46 @@ function ListingReviewPage({
                       <p>{record.rejectionReason}</p>
                     </div>
                   )}
-                  {record.status === "Pending Review" && (
-                    <div className="review-actions">
-                      <button
-                        className="request-decline"
-                        onClick={() => {
-                          setRejecting(record);
-                          setReason("");
-                          setReasonError("");
-                        }}
-                      >
-                        Reject
-                      </button>
-                      <button className="primary-action" onClick={() => setApproving(record)}>
-                        <Icon name="check" size={15} />
-                        Approve
-                      </button>
-                    </div>
-                  )}
+                  <div className="review-footer">
+                    <dl className="review-meta">
+                      <div>
+                        <dt>Seller</dt>
+                        <dd>
+                          @{record.listing.seller}
+                          <small>{record.sellerFullName}</small>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Submitted</dt>
+                        <dd>{record.submitted}</dd>
+                      </div>
+                    </dl>
+                    {record.status === "Pending Review" && (
+                      <div className="review-actions">
+                        <button
+                          className="request-decline"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setRejecting(record);
+                            setReason("");
+                            setReasonError("");
+                          }}
+                        >
+                          Reject
+                        </button>
+                        <button
+                          className="primary-action"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setApproving(record);
+                          }}
+                        >
+                          <Icon name="check" size={15} />
+                          Approve
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </article>
             );
@@ -5166,6 +5391,7 @@ function SupportingPage({
         onRecordsChange={onReviewListingsChange}
         onAction={onAction}
         onRefresh={onRefresh}
+        onOpenListing={onOpenListing}
       />
     );
   }
@@ -6133,6 +6359,7 @@ export default function App() {
       {selected && (
         <DetailModal
           listing={selected}
+          role={role}
           onClose={() => setSelected(null)}
           onAction={(message) => {
             showToast(message);

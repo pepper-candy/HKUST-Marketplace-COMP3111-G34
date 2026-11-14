@@ -1009,11 +1009,20 @@ export async function updateListingDetails(
   throwIf(error);
 }
 
+const recentListingViews = new Map<number, number>();
+
 export async function incrementViews(listingId: number) {
+  const now = Date.now();
+  const last = recentListingViews.get(listingId) ?? 0;
+  if (now - last < 2000) return null;
+  recentListingViews.set(listingId, now);
   const { data, error } = await supabase.rpc("increment_listing_views", {
     p_listing_id: listingId,
   });
-  if (error) return null;
+  if (error) {
+    recentListingViews.delete(listingId);
+    return null;
+  }
   return data as number;
 }
 
