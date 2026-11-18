@@ -1355,11 +1355,11 @@ function ChatScreen({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [offerError, setOfferError] = useState("");
+  const [acting, setActing] = useState(false);
   const [confirming, setConfirming] = useState<{
-    offerId: number;
+    offerId: number | null;
     action: "Accept" | "Decline";
   } | null>(null);
-  const [acting, setActing] = useState(false);
   const currentSender = role === "Seller" ? "seller" : "buyer";
   const sendingCounter = role === "Seller";
   const canFormalOffer = listing.type !== "Give Away" && (role === "Buyer" || Boolean(activeOfferId));
@@ -1488,25 +1488,36 @@ function ChatScreen({
       .finally(() => setActing(false));
   };
 
-  const confirmChatOffer = () => {
-    if (!confirming) return;
+  const confirmBuyerCounter = () => {
+    if (!confirming || acting) return;
     const { offerId, action } = confirming;
     setActing(true);
-    void api
-      .respondToOffer(offerId, action === "Accept" ? "accept" : "decline")
+    const isClaim = listing.type === "Give Away";
+    const request = isClaim
+      ? api.submitListingAction(listing, {})
+      : action === "Accept"
+        ? api.acceptCounterOffer(offerId as number)
+        : api.declineCounterOffer(offerId as number);
+    void request
       .then(() => onRefresh())
       .then(() => {
         onMessagesChange((current) =>
           current.map((message) =>
-            message.offerId === offerId
-              ? { ...message, offerStatus: action === "Accept" ? "Accepted" : "Declined" }
+            (offerId != null && message.offerId === offerId) ||
+            (isClaim && message.kind === "offer" && message.sender === "seller")
+              ? {
+                  ...message,
+                  offerStatus: action === "Accept" ? "Accepted" : "Declined",
+                }
               : message,
           ),
         );
         onAction(
-          action === "Accept"
-            ? `Offer accepted. @${counterparty} was notified.`
-            : `Offer declined. @${counterparty} was notified.`,
+          isClaim
+            ? `Claim sent to @${counterparty}`
+            : action === "Accept"
+              ? `Offer accepted. @${counterparty} was notified.`
+              : `Offer declined. @${counterparty} was notified.`,
         );
         setConfirming(null);
       })
@@ -1584,14 +1595,25 @@ function ChatScreen({
           {visibleMessages.length ? (
             visibleMessages.map((message) => {
               const stale = isStaleOfferBubble(message, messages);
-              const offerId = message.offerId ?? (stale ? undefined : (activeOfferId ?? undefined));
               const offerStatus = message.offerStatus ?? "Pending";
-              const sellerCanRespond =
-                role === "Seller" &&
+              const offerId = message.offerId ?? (stale ? undefined : (activeOfferId ?? undefined));
+              const buyerCanClaim =
+                role === "Buyer" &&
+                listing.type === "Give Away" &&
                 message.kind === "offer" &&
+                message.sender === "seller" &&
                 !stale &&
-                offerId != null &&
-                (offerStatus === "Pending" || offerStatus === "Countered");
+                offerId == null &&
+                offerStatus !== "Accepted" &&
+                offerStatus !== "Declined";
+              const buyerCanRespond =
+                role === "Buyer" &&
+                listing.type !== "Give Away" &&
+                message.kind === "offer" &&
+                message.sender === "seller" &&
+                !stale &&
+                offerStatus === "Countered" &&
+                offerId != null;
               return (
               <div
                 className={`message-row ${message.sender === currentSender ? "mine" : "theirs"}`}
@@ -1611,7 +1633,11 @@ function ChatScreen({
                     {message.kind === "offer" && (
                       <span className="formal-label">
                         <Icon name="bag" size={14} />{" "}
-                        {listing.type === "Sell" ? "OFFER" : "BORROW REQUEST"}
+                        {listing.type === "Sell"
+                          ? "OFFER"
+                          : listing.type === "Lend"
+                            ? "BORROW REQUEST"
+                            : "CLAIM"}
                       </span>
                     )}
                     <p>
@@ -1624,7 +1650,19 @@ function ChatScreen({
                         {stale ? "No longer valid" : offerStatus}
                       </span>
                     )}
-                    {sellerCanRespond && offerId != null && (
+                    {buyerCanClaim && (
+                      <div className="chat-offer-buttons">
+                        <button
+                          type="button"
+                          className="primary-action"
+                          disabled={acting}
+                          onClick={() => setConfirming({ offerId: null, action: "Accept" })}
+                        >
+                          Claim
+                        </button>
+                      </div>
+                    )}
+                    {buyerCanRespond && offerId != null && (
                       <div className="chat-offer-buttons">
                         <button
                           type="button"
@@ -1773,12 +1811,16 @@ function ChatScreen({
               <Icon name={confirming.action === "Accept" ? "check" : "x"} size={23} />
             </span>
             <h2>
-              {confirming.action} this {listing.type === "Lend" ? "borrow request" : "offer"}?
+              {listing.type === "Give Away"
+                ? "Claim this item?"
+                : `${confirming.action} this ${listing.type === "Lend" ? "borrow request" : "offer"}?`}
             </h2>
             <p>
-              {confirming.action === "Accept"
-                ? `The listing status will update and @${counterparty} will be notified.`
-                : `The request will close and @${counterparty} will be notified.`}
+              {listing.type === "Give Away"
+                ? `@${counterparty} will be notified so you can arrange a meetup.`
+                : confirming.action === "Accept"
+                  ? `The listing status will update and @${counterparty} will be notified.`
+                  : `The request will close and @${counterparty} will be notified.`}
             </p>
             <div className="confirm-actions">
               <button
@@ -1791,9 +1833,9 @@ function ChatScreen({
               <button
                 className={confirming.action === "Accept" ? "primary-action" : "destructive-action"}
                 disabled={acting}
-                onClick={confirmChatOffer}
+                onClick={confirmBuyerCounter}
               >
-                {confirming.action} request
+                {listing.type === "Give Away" ? "Claim item" : `${confirming.action} offer`}
               </button>
             </div>
           </div>
@@ -6930,6 +6972,7 @@ export default function App() {
       setSelected(null);
       setChatCounterparty(participant ?? listing.seller);
       setChatListing(listing);
+      if (role === "Buyer") void refresh();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Could not open chat.");
     }
@@ -7121,12 +7164,18 @@ export default function App() {
               threadId={chatThreadId}
               counterparty={chatCounterparty || chatListing.seller}
               activeOfferId={
-                sellerRequests.find(
-                  (request) =>
-                    request.listing.id === chatListing.id &&
-                    request.buyer === chatCounterparty &&
-                    (request.status === "Pending" || request.status === "Countered"),
-                )?.id ?? null
+                (role === "Seller"
+                  ? sellerRequests.find(
+                      (request) =>
+                        request.listing.id === chatListing.id &&
+                        request.buyer === chatCounterparty &&
+                        (request.status === "Pending" || request.status === "Countered"),
+                    )?.id
+                  : buyerDealState.find(
+                      (deal) =>
+                        deal.listing.id === chatListing.id &&
+                        (deal.status === "Pending" || deal.status === "Countered"),
+                    )?.id) ?? null
               }
               messages={chatMessages[chatListing.id] ?? []}
               onMessagesChange={(messages) =>
