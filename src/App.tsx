@@ -121,13 +121,6 @@ const iconPaths: Record<string, React.ReactNode> = {
       <circle cx="12" cy="10" r="2.5" />
     </>
   ),
-  sliders: (
-    <>
-      <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
-      <circle cx="16" cy="7" r="2" />
-      <circle cx="8" cy="17" r="2" />
-    </>
-  ),
   x: <path d="M6 6l12 12M18 6 6 18" />,
   message: <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />,
   arrow: <path d="m5 12 14 0m-5-5 5 5-5 5" />,
@@ -365,9 +358,6 @@ function Browse({
           <option>Used</option>
           <option>For Parts</option>
         </select>
-        <button className="filter-button">
-          <Icon name="sliders" size={17} /> More filters
-        </button>
       </div>
 
       {filtered.length ? (
@@ -390,6 +380,8 @@ function Browse({
 function DetailModal({
   listing,
   role,
+  currentUsername,
+  listingOffers,
   onClose,
   onAction,
   onChat,
@@ -397,9 +389,17 @@ function DetailModal({
 }: {
   listing: Listing;
   role: Role;
+  currentUsername: string;
+  listingOffers: {
+    id: number;
+    buyer: string;
+    type: string;
+    detail: string;
+    status: string;
+  }[];
   onClose: () => void;
   onAction: (message: string) => void;
-  onChat: () => void;
+  onChat: (participant?: string) => void;
   onViewSeller: () => void;
 }) {
   const photos = (
@@ -422,6 +422,7 @@ function DetailModal({
   const [photoZoomed, setPhotoZoomed] = useState(false);
   const currentPhoto = photos[photoIndex];
   const canZoomPhoto = isUsableListingPhoto(currentPhoto);
+  const isOwnListing = listing.seller === currentUsername;
 
   useEffect(() => {
     setAdminStep(null);
@@ -714,7 +715,7 @@ function DetailModal({
             </span>
           </button>
 
-          {role !== "Admin" && actionOpen && listing.type !== "Give Away" && (
+          {role !== "Admin" && !isOwnListing && actionOpen && listing.type !== "Give Away" && (
             <form className="request-form" onSubmit={submitTypeAction}>
               <div className="request-form-heading">
                 <div>
@@ -907,6 +908,39 @@ function DetailModal({
                   </div>
                 )}
             </>
+          ) : isOwnListing ? (
+            <div className="listing-offers">
+              <div className="listing-offers-heading">
+                <small>OFFERS / REQUESTS</small>
+                <span>
+                  {listingOffers.length} {listingOffers.length === 1 ? "item" : "items"}
+                </span>
+              </div>
+              {listingOffers.length ? (
+                <div className="listing-offers-list">
+                  {listingOffers.map((offer) => (
+                    <article className="listing-offer-row" key={offer.id}>
+                      <div className="listing-offer-copy">
+                        <strong>@{offer.buyer}</strong>
+                        <small>
+                          {offer.type} · {offer.status}
+                        </small>
+                        {offer.detail && <p>{offer.detail}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        className="deal-text-action"
+                        onClick={() => onChat(offer.buyer)}
+                      >
+                        <Icon name="message" size={16} /> Open chat
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="listing-offers-empty">No offers or requests on this listing yet.</p>
+              )}
+            </div>
           ) : (
             <>
               <div className="detail-actions">
@@ -920,7 +954,7 @@ function DetailModal({
                         : "Claim Item"}
                   <Icon name="arrow" size={18} />
                 </button>
-                <button className="secondary-action" onClick={onChat}>
+                <button className="secondary-action" onClick={() => onChat()}>
                   <Icon name="message" size={18} />
                   Chat
                 </button>
@@ -2765,13 +2799,56 @@ function listingFromNotification(message: string, listings: Listing[]) {
   return listings.find((listing) => message.includes(listing.title));
 }
 
+function usernameFromNotification(item: NotificationItem) {
+  return `${item.title} ${item.message}`.match(/@([A-Za-z0-9._-]+)/)?.[1];
+}
+
+function chatTargetFromNotification(
+  item: NotificationItem,
+  role: Role,
+  listings: Listing[],
+  sellerRequests: SellerRequest[],
+  buyerDeals: BuyerDeal[],
+) {
+  const username = usernameFromNotification(item);
+  const listing = listingFromNotification(`${item.title} ${item.message}`, listings);
+
+  if (role === "Seller") {
+    const request =
+      sellerRequests.find(
+        (entry) =>
+          Boolean(username) &&
+          entry.buyer === username &&
+          (!listing || entry.listing.id === listing.id),
+      ) ??
+      sellerRequests.find((entry) => Boolean(username) && entry.buyer === username) ??
+      sellerRequests.find((entry) => listing != null && entry.listing.id === listing.id);
+    if (request) return { listing: request.listing, participant: request.buyer };
+  }
+
+  if (role === "Buyer") {
+    const deal =
+      buyerDeals.find((entry) => listing != null && entry.listing.id === listing.id) ??
+      buyerDeals.find((entry) => Boolean(username) && entry.listing.seller === username);
+    if (deal) return { listing: deal.listing };
+    if (listing) return { listing };
+    if (username) {
+      const bySeller = listings.find((entry) => entry.seller === username);
+      if (bySeller) return { listing: bySeller };
+    }
+  }
+
+  if (listing) return { listing, participant: username };
+  return null;
+}
+
 function pageForNotificationAction(action: string, role: Role) {
   if (action === "Review listing") return role === "Admin" ? "Listing Review" : "My Listings";
   if (action === "View listing") {
     return role === "Admin" ? "All Listings" : role === "Seller" ? "My Listings" : "Browse";
   }
-  if (action === "View offer" || action === "Review request") {
-    return role === "Seller" ? "Offers / Requests" : "My Deals";
+  if (action === "View offer" || action === "Review request" || action === "Open chat") {
+    return role === "Seller" ? "Offers / Requests" : role === "Admin" ? "All Deals" : "My Deals";
   }
   if (action === "View deal" || action === "View deals") {
     return role === "Admin" ? "All Deals" : "My Deals";
@@ -2787,6 +2864,8 @@ function NotificationBoard({
   role,
   items,
   listings,
+  sellerRequests,
+  buyerDeals,
   readIds,
   onReadIdsChange,
   onOpenListing,
@@ -2796,6 +2875,8 @@ function NotificationBoard({
   role: Role;
   items: NotificationItem[];
   listings: Listing[];
+  sellerRequests: SellerRequest[];
+  buyerDeals: BuyerDeal[];
   readIds: number[];
   onReadIdsChange: (ids: number[]) => void;
   onOpenListing: (listing: Listing) => void;
@@ -2913,12 +2994,24 @@ function NotificationBoard({
                               onClick={(event) => {
                                 event.stopPropagation();
                                 markRead(item.id);
-                                const listing = listingFromNotification(item.message, listings);
-                                const nextPage = pageForNotificationAction(item.action!, role);
-                                if (item.action === "Open chat" && listing) {
-                                  onChatListing(listing);
-                                  return;
+                                if (item.action === "Open chat") {
+                                  const target = chatTargetFromNotification(
+                                    item,
+                                    role,
+                                    listings,
+                                    sellerRequests,
+                                    buyerDeals,
+                                  );
+                                  if (target) {
+                                    onChatListing(target.listing, target.participant);
+                                    return;
+                                  }
                                 }
+                                const listing = listingFromNotification(
+                                  `${item.title} ${item.message}`,
+                                  listings,
+                                );
+                                const nextPage = pageForNotificationAction(item.action!, role);
                                 if (nextPage) onNavigate(nextPage);
                                 if (listing) onOpenListing(listing);
                               }}
@@ -5428,6 +5521,8 @@ function SupportingPage({
         role={role}
         items={notifications}
         listings={listings}
+        sellerRequests={sellerRequests}
+        buyerDeals={buyerDealState}
         readIds={notificationReads}
         onReadIdsChange={onNotificationReadsChange}
         onOpenListing={onOpenListing}
@@ -6414,13 +6509,15 @@ export default function App() {
         <DetailModal
           listing={selected}
           role={role}
+          currentUsername={currentUsername}
+          listingOffers={sellerRequests.filter((request) => request.listing.id === selected.id)}
           onClose={() => setSelected(null)}
           onAction={(message) => {
             showToast(message);
             setSelected(null);
             void refresh();
           }}
-          onChat={() => openChat(selected)}
+          onChat={(participant) => openChat(selected, participant)}
           onViewSeller={() => {
             setProfileSeller(selected.seller);
             setSelected(null);

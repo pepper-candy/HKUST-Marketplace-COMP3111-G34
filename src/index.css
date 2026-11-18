@@ -2011,6 +2011,76 @@ footer > span {
 .detail-actions .primary-action {
   flex: 1;
 }
+.listing-offers {
+  margin-top: 4px;
+}
+.listing-offers-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.listing-offers-heading small {
+  color: #8793a0;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.listing-offers-heading span {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+}
+.listing-offers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.listing-offer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7f9fb;
+}
+.listing-offer-copy {
+  min-width: 0;
+}
+.listing-offer-row strong {
+  display: block;
+  color: var(--navy);
+  font-size: 11px;
+}
+.listing-offer-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 8px;
+  margin-top: 2px;
+}
+.listing-offer-row p {
+  color: #536577;
+  font-size: 9px;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.listing-offer-row .deal-text-action {
+  flex: 0 0 auto;
+}
+.listing-offers-empty {
+  padding: 14px;
+  border: 1px dashed #ced9e1;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+  background: #fafbfc;
+}
 .secondary-action {
   height: 40px;
   border: 1px solid #9bafc0;
@@ -2952,6 +3022,7 @@ footer > span {
   color: var(--muted);
 }
 .counter-form label {
+  display: block;
   color: #536577;
   font-size: 8px;
   font-weight: 700;
@@ -2972,9 +3043,19 @@ footer > span {
   border-color: #7f9fba;
   box-shadow: 0 0 0 3px #e7eef4;
 }
+.counter-form .money-input {
+  margin-top: 4px;
+}
 .counter-form .money-input span {
-  top: 15px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
   font-weight: 400;
+}
+.counter-form .money-input input {
+  margin-top: 0;
+  padding-left: 38px;
 }
 .counter-submit {
   height: 36px;
