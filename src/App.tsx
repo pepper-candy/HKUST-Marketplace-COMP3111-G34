@@ -6475,7 +6475,7 @@ function AuthPortal({
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Registration failed.";
-      if (message.toLowerCase().includes("username")) {
+      if (message.toLowerCase().includes("user")) {
         setFieldErrors({ username: message });
       } else {
         setError(message);
