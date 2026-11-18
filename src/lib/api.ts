@@ -39,13 +39,24 @@ export type Listing = {
   sellerReviewCount?: number;
 };
 
+export type ChatOfferStatus = "Pending" | "Accepted" | "Declined" | "Countered";
+
 export type ChatMessage = {
   id: number;
   sender: "buyer" | "seller";
   body: string;
   time: string;
   kind?: "message" | "offer";
-  offerStatus?: "Pending" | "Accepted" | "Countered";
+  offerId?: number;
+  offerStatus?: ChatOfferStatus;
+};
+
+export type MyChatThread = {
+  id: number;
+  listing: Listing;
+  counterparty: string;
+  lastMessage: string;
+  updated: string;
 };
 
 export type BuyerDeal = {
@@ -329,6 +340,14 @@ function offerKindUi(kind: string): BuyerDeal["kind"] {
   return "Offer";
 }
 
+function unifyStoredOfferDetail(detail: string | null) {
+  if (!detail) return "";
+  return detail
+    .replace(/^Proposed price:/i, "Offer:")
+    .replace(/^Seller counter:/i, "Offer:")
+    .replace(/^Seller proposed new lending dates:/i, "Borrow request:");
+}
+
 function availabilityLabel(status: string) {
   if (status === "live") return "Available";
   if (status === "pending") return "Pending review";
@@ -399,6 +418,42 @@ function formatDateTime(iso: string) {
   }).format(new Date(iso));
 }
 
+export function offerDetailLabel(input: {
+  type: Listing["type"] | "Sell" | "Lend";
+  price?: number;
+  start?: string;
+  end?: string;
+}) {
+  if (input.type === "Lend") {
+    const start = input.start ? formatDateTime(new Date(input.start).toISOString()) : "";
+    const end = input.end ? formatDateTime(new Date(input.end).toISOString()) : "";
+    return `Borrow request: ${start} → ${end}`;
+  }
+  return `Offer: HK$${Number(input.price).toLocaleString()}`;
+}
+
+export function chatOfferStatusUi(status: string | undefined | null): ChatOfferStatus | undefined {
+  if (!status) return undefined;
+  const value = status.toLowerCase();
+  if (value === "pending") return "Pending";
+  if (value === "countered") return "Countered";
+  if (value === "declined" || value === "cancelled") return "Declined";
+  if (
+    value === "accepted" ||
+    value.startsWith("accepted") ||
+    value === "purchased" ||
+    value === "borrowed" ||
+    value.includes("reserved") ||
+    value.includes("lent") ||
+    value.includes("given") ||
+    value === "completed" ||
+    value === "returned"
+  ) {
+    return "Accepted";
+  }
+  return undefined;
+}
+
 function formatClock(iso: string) {
   return new Intl.DateTimeFormat("en-HK", {
     hour: "2-digit",
@@ -449,20 +504,25 @@ export function chatMessageFromRow(
     sender_id: string;
     body: string;
     kind?: string | null;
+    offer_id?: number | string | null;
     created_at: string;
   },
   myRole: Role,
   myId?: string,
+  offerStatus?: ChatOfferStatus,
 ): ChatMessage {
   const mine = row.sender_id === myId;
   const sender: ChatMessage["sender"] =
     myRole === "Seller" ? (mine ? "seller" : "buyer") : mine ? "buyer" : "seller";
+  const offerId = row.offer_id == null || row.offer_id === "" ? undefined : Number(row.offer_id);
   return {
     id: Number(row.id),
     sender,
     body: row.body,
     time: formatClock(row.created_at),
     kind: row.kind === "offer" ? "offer" : "message",
+    offerId: Number.isFinite(offerId) ? offerId : undefined,
+    offerStatus,
   };
 }
 
@@ -764,7 +824,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
         kind: offerKindUi(offer.kind),
         status,
         date: formatDateTime(offer.created_at),
-        detail: offer.detail ?? "",
+        detail: unifyStoredOfferDetail(offer.detail),
         dueDate: offer.end_at ? formatDateTime(offer.end_at) : undefined,
         completed,
       } satisfies BuyerDeal;
@@ -784,7 +844,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
         buyer: usernameOf(profiles, offer.buyer_id),
         type: offerKindUi(offer.kind),
         submitted: formatRelative(offer.created_at),
-        detail: offer.detail ?? "",
+        detail: unifyStoredOfferDetail(offer.detail),
         status: offerStatusUi(offer.status),
         listingStatus: listingStatusForRequest(listingRow.status),
       } satisfies SellerRequest;
@@ -1088,11 +1148,11 @@ export async function submitListingAction(
   input: { price?: number; start?: string; end?: string },
 ) {
   if (listing.type === "Give Away") {
-    const { error } = await supabase.rpc("claim_giveaway", { p_listing_id: listing.id });
+    const { data, error } = await supabase.rpc("claim_giveaway", { p_listing_id: listing.id });
     if (error) throw new Error(rpcMessage(error));
-    return;
+    return data as number;
   }
-  const { error } = await supabase.rpc("create_offer", {
+  const { data, error } = await supabase.rpc("create_offer", {
     p_listing_id: listing.id,
     p_kind: listing.type === "Lend" ? "borrow" : "offer",
     p_price: listing.type === "Sell" ? input.price : null,
@@ -1100,6 +1160,28 @@ export async function submitListingAction(
     p_end_at: listing.type === "Lend" && input.end ? new Date(input.end).toISOString() : null,
   });
   if (error) throw new Error(rpcMessage(error));
+  return data as number;
+}
+
+export async function postOfferChatIfBuyerThread(
+  listingId: number,
+  body: string,
+  offerId: number,
+) {
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
+    const { data: thread } = await supabase
+      .from("chat_threads")
+      .select("id")
+      .eq("listing_id", listingId)
+      .eq("buyer_id", auth.user.id)
+      .maybeSingle();
+    if (!thread?.id) return;
+    await sendChatMessage(thread.id, body, "offer", "Buyer", offerId);
+  } catch {
+    /* The offer row is already saved; chat sync must not fail the submit. */
+  }
 }
 
 export async function respondToOffer(
@@ -1212,6 +1294,67 @@ export async function markNotificationsRead(ids: number[]) {
   if (error) throw new Error(rpcMessage(error));
 }
 
+export async function listMyChatThreads(): Promise<MyChatThread[]> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return [];
+  const myId = auth.user.id;
+  const { data: threads, error } = await supabase
+    .from("chat_threads")
+    .select("id, listing_id, buyer_id, seller_id, created_at")
+    .or(`buyer_id.eq.${myId},seller_id.eq.${myId}`);
+  throwIf(error);
+  if (!threads?.length) return [];
+
+  const listingIds = [...new Set(threads.map((thread) => thread.listing_id as number))];
+  const [{ data: profiles }, { data: listingRows }] = await Promise.all([
+    supabase.from("profiles").select("*"),
+    supabase.from("listings").select("*").in("id", listingIds),
+  ]);
+  const profileRows = (profiles ?? []) as ProfileRow[];
+  const listingById = new Map(
+    ((listingRows ?? []) as ListingRow[]).map((row) => [row.id, mapListing(row, profileRows, [])]),
+  );
+
+  const { data: messages } = await supabase
+    .from("chat_messages")
+    .select("thread_id, body, created_at")
+    .in(
+      "thread_id",
+      threads.map((thread) => thread.id),
+    )
+    .order("created_at", { ascending: false });
+
+  const lastByThread = new Map<number, { body: string; created_at: string }>();
+  for (const message of messages ?? []) {
+    const threadId = message.thread_id as number;
+    if (!lastByThread.has(threadId)) {
+      lastByThread.set(threadId, {
+        body: (message.body as string) ?? "",
+        created_at: message.created_at as string,
+      });
+    }
+  }
+
+  return threads
+    .map((thread) => {
+      const listing = listingById.get(thread.listing_id as number);
+      if (!listing) return null;
+      const otherId = thread.buyer_id === myId ? thread.seller_id : thread.buyer_id;
+      const last = lastByThread.get(thread.id as number);
+      return {
+        id: thread.id as number,
+        listing,
+        counterparty: usernameOf(profileRows, otherId as string),
+        lastMessage: last?.body ?? "",
+        updated: formatRelative(last?.created_at ?? (thread.created_at as string)),
+        sortKey: last?.created_at ?? (thread.created_at as string),
+      };
+    })
+    .filter((thread): thread is NonNullable<typeof thread> => Boolean(thread))
+    .sort((a, b) => new Date(b.sortKey).getTime() - new Date(a.sortKey).getTime())
+    .map(({ sortKey: _sortKey, ...thread }) => thread);
+}
+
 export async function listListingChatPeople(listingId: number) {
   const { data: threads, error } = await supabase
     .from("chat_threads")
@@ -1252,36 +1395,37 @@ export async function findChatWithUsername(username: string) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user || !username) return null;
   const myId = auth.user.id;
-  const { data: other } = await supabase
-    .from("profiles")
-    .select("id, username")
-    .eq("username", username)
-    .maybeSingle();
+  const needle = username.trim();
+  const { data: profiles } = await supabase.from("profiles").select("id, username");
+  const other = (profiles ?? []).find(
+    (profile) => (profile.username as string)?.toLowerCase() === needle.toLowerCase(),
+  );
   if (!other?.id) return null;
 
   const { data: threads, error } = await supabase
     .from("chat_threads")
     .select("id, listing_id, buyer_id, seller_id, created_at")
-    .or(
-      `and(buyer_id.eq.${myId},seller_id.eq.${other.id}),and(seller_id.eq.${myId},buyer_id.eq.${other.id})`,
-    );
+    .or(`buyer_id.eq.${myId},seller_id.eq.${myId}`);
   throwIf(error);
-  if (!threads?.length) return null;
+  const matches = (threads ?? []).filter(
+    (thread) => thread.buyer_id === other.id || thread.seller_id === other.id,
+  );
+  if (!matches.length) return null;
 
-  let thread = threads[0];
-  if (threads.length > 1) {
+  let thread = matches[0];
+  if (matches.length > 1) {
     const { data: latest } = await supabase
       .from("chat_messages")
       .select("thread_id")
       .in(
         "thread_id",
-        threads.map((row) => row.id),
+        matches.map((row) => row.id),
       )
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (latest?.thread_id) {
-      thread = threads.find((row) => row.id === latest.thread_id) ?? thread;
+      thread = matches.find((row) => row.id === latest.thread_id) ?? thread;
     }
   }
 
@@ -1291,9 +1435,9 @@ export async function findChatWithUsername(username: string) {
     .eq("id", thread.listing_id)
     .maybeSingle();
   if (!listingRow) return null;
-  const { data: profiles } = await supabase.from("profiles").select("*");
+  const { data: allProfiles } = await supabase.from("profiles").select("*");
   return {
-    listing: mapListing(listingRow as ListingRow, (profiles ?? []) as ProfileRow[], []),
+    listing: mapListing(listingRow as ListingRow, (allProfiles ?? []) as ProfileRow[], []),
     participant: other.username as string,
     buyerId: thread.buyer_id as string,
   };
@@ -1322,7 +1466,31 @@ export async function loadChatMessages(threadId: number, myRole: Role) {
   throwIf(error);
   const { data: user } = await supabase.auth.getUser();
   const myId = user.user?.id;
-  return (data ?? []).map((row) => chatMessageFromRow(row, myRole, myId));
+  const rows = data ?? [];
+  const offerIds = [
+    ...new Set(
+      rows
+        .map((row) => (row.offer_id == null ? null : Number(row.offer_id)))
+        .filter((id): id is number => Number.isFinite(id)),
+    ),
+  ];
+  const statusById = new Map<number, ChatOfferStatus>();
+  if (offerIds.length) {
+    const { data: offerRows } = await supabase.from("offers").select("id, status").in("id", offerIds);
+    for (const offer of offerRows ?? []) {
+      const status = chatOfferStatusUi(offer.status as string);
+      if (status) statusById.set(Number(offer.id), status);
+    }
+  }
+  return rows.map((row) => {
+    const offerId = row.offer_id == null ? undefined : Number(row.offer_id);
+    return chatMessageFromRow(
+      row,
+      myRole,
+      myId,
+      offerId != null ? statusById.get(offerId) : undefined,
+    );
+  });
 }
 
 export async function sendChatMessage(
@@ -1330,6 +1498,7 @@ export async function sendChatMessage(
   body: string,
   kind: "message" | "offer" = "message",
   myRole: Role = "Buyer",
+  offerId?: number | null,
 ) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Not signed in.");
@@ -1340,12 +1509,19 @@ export async function sendChatMessage(
       sender_id: auth.user.id,
       body,
       kind,
+      ...(kind === "offer" && offerId != null ? { offer_id: offerId } : {}),
     })
     .select("id, sender_id, body, kind, created_at, offer_id")
     .single();
   throwIf(error);
   if (!data) throw new Error("Could not send message.");
-  return chatMessageFromRow(data, myRole, auth.user.id);
+  const status =
+    kind === "offer" && offerId != null
+      ? myRole === "Seller"
+        ? "Countered"
+        : "Pending"
+      : undefined;
+  return chatMessageFromRow(data, myRole, auth.user.id, status);
 }
 
 type NotificationChangeRow = {
@@ -1411,6 +1587,7 @@ type ChatChangeRow = {
   sender_id: string;
   body: string;
   kind?: string | null;
+  offer_id?: number | string | null;
   created_at: string;
 };
 
@@ -1435,7 +1612,14 @@ export function subscribeChatThread(
           const row = payload.new as ChatChangeRow;
           if (row?.id == null || !row.sender_id || !row.body || !row.created_at) return;
           try {
-            onInsert(chatMessageFromRow(row, myRole, myId));
+            onInsert(
+              chatMessageFromRow(
+                row,
+                myRole,
+                myId,
+                row.kind === "offer" ? "Pending" : undefined,
+              ),
+            );
           } catch {
             /* Realtime payload mapping must not crash the app. */
           }
