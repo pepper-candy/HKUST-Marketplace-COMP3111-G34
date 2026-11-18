@@ -46,8 +46,7 @@ BEGIN
     ELSIF v_offer.kind = 'claim' THEN
       UPDATE public.listings SET status = 'given' WHERE id = v_listing.id;
     ELSE
-      -- A completed borrowing deal means the item is no longer being borrowed.
-      UPDATE public.listings SET status = 'live' WHERE id = v_listing.id;
+      UPDATE public.listings SET status = 'lent' WHERE id = v_listing.id;
     END IF;
 
     SELECT username INTO v_buyer FROM public.profiles WHERE id = v_offer.buyer_id;
@@ -76,19 +75,84 @@ BEGIN
 END;
 $$;
 
--- Reconcile records that were completed before this fix was deployed.
+CREATE OR REPLACE FUNCTION public.reconcile_offer_listing_status()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_status text;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    v_status := NEW.status;
+  ELSE
+    v_status := NEW.status;
+  END IF;
+
+  PERFORM set_config('app.listing_rpc', 'on', true);
+
+  IF v_status = 'accepted' THEN
+    UPDATE public.listings
+    SET status = CASE NEW.kind
+      WHEN 'offer' THEN 'reserved'
+      WHEN 'borrow' THEN 'lent'
+      ELSE 'given'
+    END
+    WHERE id = NEW.listing_id;
+  ELSIF v_status = 'completed' THEN
+    UPDATE public.listings
+    SET status = CASE NEW.kind
+      WHEN 'offer' THEN 'sold'
+      WHEN 'borrow' THEN 'lent'
+      ELSE 'given'
+    END
+    WHERE id = NEW.listing_id;
+  ELSIF v_status = 'returned' AND NEW.kind = 'borrow' THEN
+    UPDATE public.listings SET status = 'live' WHERE id = NEW.listing_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS offers_reconcile_listing_status ON public.offers;
+CREATE TRIGGER offers_reconcile_listing_status
+AFTER INSERT OR UPDATE OF status ON public.offers
+FOR EACH ROW
+EXECUTE FUNCTION public.reconcile_offer_listing_status();
+
+-- Reconcile records that predate this fix.
 DO $$
 BEGIN
   PERFORM set_config('app.listing_rpc', 'on', true);
 
   UPDATE public.listings l
-  SET status = CASE o.kind
-    WHEN 'offer' THEN 'sold'
-    WHEN 'claim' THEN 'given'
-    ELSE 'live'
-  END
-  FROM public.offers o
-  WHERE o.listing_id = l.id
-    AND o.status = 'completed';
+  SET status = CASE
+    WHEN EXISTS (
+      SELECT 1 FROM public.offers o
+      WHERE o.listing_id = l.id AND o.kind = 'offer' AND o.status = 'completed'
+    ) THEN 'sold'
+    WHEN EXISTS (
+      SELECT 1 FROM public.offers o
+      WHERE o.listing_id = l.id AND o.kind = 'claim'
+        AND o.status IN ('accepted', 'completed')
+    ) THEN 'given'
+    WHEN EXISTS (
+      SELECT 1 FROM public.offers o
+      WHERE o.listing_id = l.id AND o.kind = 'borrow'
+        AND o.status IN ('accepted', 'completed')
+    ) THEN 'lent'
+    WHEN EXISTS (
+      SELECT 1 FROM public.offers o
+      WHERE o.listing_id = l.id AND o.kind = 'offer'
+        AND o.status = 'accepted'
+    ) THEN 'reserved'
+    WHEN EXISTS (
+      SELECT 1 FROM public.offers o
+      WHERE o.listing_id = l.id AND o.kind = 'borrow' AND o.status = 'returned'
+    ) THEN 'live'
+    ELSE l.status
+  END;
 END;
 $$;

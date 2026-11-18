@@ -810,12 +810,11 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     .filter((row) => {
       if (row.status !== "live") return false;
 
-      // Do not show a sell/claim listing in Browse if an accepted or completed
-      // deal is associated with it, even if an old database/RPC state is stale.
+      // Do not show a listing while it is reserved, on loan, sold, or given.
+      // This also protects Browse against an old/stale listing status.
       return !offers.some(
         (offer) =>
           offer.listing_id === row.id &&
-          (offer.kind === "offer" || offer.kind === "claim") &&
           ["accepted", "completed"].includes(offer.status),
       );
     })
