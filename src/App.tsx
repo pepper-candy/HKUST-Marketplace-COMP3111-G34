@@ -17,6 +17,48 @@ type ChatMessage = {
   offerStatus?: "Pending" | "Accepted" | "Countered";
 };
 
+type ListingOfferItem = {
+  id: number | string;
+  buyer: string;
+  type: string;
+  detail: string;
+  status: string;
+};
+
+function offerAmountKey(text: string) {
+  const match = text.replace(/,/g, "").match(/HK\$\s*([\d.]+)/i);
+  return match?.[1]?.replace(/\.0+$/, "") ?? text.trim().toLowerCase();
+}
+
+function chatOffersForListing(
+  listing: Listing,
+  messages: ChatMessage[],
+  buyerName: string,
+): ListingOfferItem[] {
+  return messages
+    .filter((message) => message.kind === "offer")
+    .map((message) => ({
+      id: `chat-${message.id}`,
+      buyer: message.sender === "buyer" ? buyerName || "buyer" : listing.seller,
+      type: /borrow/i.test(message.body) ? "Borrow" : "Offer",
+      detail: message.body.replace(/^Formal offer:\s*/i, "Proposed price: "),
+      status: message.offerStatus ?? "Pending",
+    }));
+}
+
+function mergeListingOffers(primary: ListingOfferItem[], extra: ListingOfferItem[]) {
+  const seen = new Set(primary.map((offer) => offerAmountKey(offer.detail)));
+  return [
+    ...extra.filter((offer) => {
+      const key = offerAmountKey(offer.detail);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }),
+    ...primary,
+  ];
+}
+
 const navByRole: Record<Role, { label: string; icon: string }[]> = {
   Buyer: [
     { label: "Browse", icon: "grid" },
@@ -390,13 +432,7 @@ function DetailModal({
   listing: Listing;
   role: Role;
   currentUsername: string;
-  listingOffers: {
-    id: number;
-    buyer: string;
-    type: string;
-    detail: string;
-    status: string;
-  }[];
+  listingOffers: ListingOfferItem[];
   onClose: () => void;
   onAction: (message: string) => void;
   onChat: (participant?: string) => void;
@@ -943,6 +979,29 @@ function DetailModal({
             </div>
           ) : (
             <>
+              {listingOffers.length > 0 && (
+                <div className="listing-offers">
+                  <div className="listing-offers-heading">
+                    <small>{listingOffers.length === 1 ? "YOUR OFFER" : "YOUR OFFERS"}</small>
+                    <span>
+                      {listingOffers.length} {listingOffers.length === 1 ? "item" : "items"}
+                    </span>
+                  </div>
+                  <div className="listing-offers-list">
+                    {listingOffers.map((offer) => (
+                      <article className="listing-offer-row" key={offer.id}>
+                        <div className="listing-offer-copy">
+                          <strong>@{offer.buyer}</strong>
+                          <small>
+                            {offer.type} · {offer.status}
+                          </small>
+                          {offer.detail && <p>{offer.detail}</p>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="detail-actions">
                 <button className="primary-action" onClick={openAction} disabled={submitting}>
                   {submitting
@@ -1191,6 +1250,8 @@ function ChatScreen({
   messages,
   onMessagesChange,
   onBack,
+  onOpenListing,
+  onRefresh,
   onAction,
 }: {
   listing: Listing;
@@ -1200,6 +1261,8 @@ function ChatScreen({
   messages: ChatMessage[];
   onMessagesChange: (messages: ChatMessage[]) => void;
   onBack: () => void;
+  onOpenListing: (listing: Listing) => void;
+  onRefresh: () => Promise<unknown>;
   onAction: (message: string) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -1290,6 +1353,7 @@ function ChatScreen({
           start: startDate,
           end: endDate,
         })
+        .then(() => onRefresh())
         .catch((err) => setOfferError(err instanceof Error ? err.message : "Could not send offer."));
     }
 
@@ -1340,7 +1404,11 @@ function ChatScreen({
           </label>
         </header>
 
-        <div className="chat-listing-context">
+        <button
+          type="button"
+          className="chat-listing-context"
+          onClick={() => onOpenListing(listing)}
+        >
           <img src={listing.image} alt="" />
           <div>
             <span>CONVERSATION ABOUT · {listing.type.toUpperCase()}</span>
@@ -1351,7 +1419,7 @@ function ChatScreen({
             </small>
           </div>
           <span className="available-dot">{listing.availability ?? "Available"}</span>
-        </div>
+        </button>
 
         <div className="message-history" aria-live="polite">
           <div className="history-date">
@@ -2465,6 +2533,15 @@ function CreateListingForm({
     setSubmitted(false);
   };
 
+  const startAnotherListing = () => {
+    photos.forEach((photo) => URL.revokeObjectURL(photo.url));
+    setPhotos([]);
+    setPhotoError("");
+    setFormError("");
+    setListingType("");
+    setSubmitted(false);
+  };
+
   const addPhotos = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     setPhotoError("");
@@ -2549,21 +2626,35 @@ function CreateListingForm({
         <h1>Create a new listing</h1>
         <p>Choose a listing type first, then add the details for your item.</p>
       </div>
+      {submitted ? (
+        <div className="form-card create-listing-card listing-submitted">
+          <svg
+            className="listing-submitted-mark"
+            viewBox="0 0 96 96"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle cx="48" cy="48" r="46" fill="currentColor" />
+            <path
+              d="M28 50.5 41.5 64 68 33"
+              stroke="#fff"
+              strokeWidth="7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <h2>Submitted</h2>
+          <p>
+            {role === "Admin"
+              ? "Your listing is now live on the marketplace."
+              : "Your listing is now pending review. You will be notified when an admin approves or rejects it."}
+          </p>
+          <button type="button" className="primary-action" onClick={startAnotherListing}>
+            Create another listing
+          </button>
+        </div>
+      ) : (
       <form className="form-card create-listing-card" onSubmit={submitListing} noValidate>
-        {submitted && (
-          <div className="listing-submit-success">
-            <span>✓</span>
-            <div>
-              <strong>Listing submitted for review</strong>
-              <p>
-                Your listing is now <b>Pending Review</b>. You will be notified when an admin
-                approves or rejects it.
-              </p>
-            </div>
-            <span className="deal-status">Pending Review</span>
-          </div>
-        )}
-
         <div className="form-section-heading">
           <span>1</span>
           <div>
@@ -2767,13 +2858,14 @@ function CreateListingForm({
           </div>
           <button
             className="primary-action form-submit"
-            disabled={!listingType || submitted || busy}
+            disabled={!listingType || busy}
             type="submit"
           >
-            {busy ? "Uploading photos…" : submitted ? "Submitted · Pending Review" : "Submit for review"}
+            {busy ? "Uploading photos…" : "Submit for review"}
           </button>
         </div>
       </form>
+      )}
     </section>
   );
 }
@@ -6355,6 +6447,38 @@ export default function App() {
   const unreadNotificationCount = notifications.filter(
     (item) => !notificationReads.includes(item.id),
   ).length;
+  const selectedListingOffers = selected
+    ? mergeListingOffers(
+        selected.seller === currentUsername
+          ? sellerRequests
+              .filter((request) => request.listing.id === selected.id)
+              .map((request) => ({
+                id: request.id,
+                buyer: request.buyer,
+                type: request.type,
+                detail: request.detail,
+                status: request.status,
+              }))
+          : buyerDealState
+              .filter((deal) => deal.listing.id === selected.id)
+              .map((deal) => ({
+                id: deal.id,
+                buyer: currentUsername,
+                type: deal.kind,
+                detail: deal.detail,
+                status: deal.status,
+              })),
+        chatOffersForListing(
+          selected,
+          chatMessages[selected.id] ?? [],
+          selected.seller === currentUsername
+            ? chatListing?.id === selected.id
+              ? chatCounterparty
+              : ""
+            : currentUsername,
+        ),
+      )
+    : [];
   const mobileNavItems =
     role === "Seller"
       ? navByRole.Seller.filter((item) =>
@@ -6438,6 +6562,11 @@ export default function App() {
                 setChatMessages((current) => ({ ...current, [chatListing.id]: messages }))
               }
               onBack={() => setChatListing(null)}
+              onOpenListing={(listing) => {
+                setSelected(listing);
+                void refresh();
+              }}
+              onRefresh={refresh}
               onAction={showToast}
             />
           ) : role === "Buyer" && page === "Browse" ? (
@@ -6510,7 +6639,7 @@ export default function App() {
           listing={selected}
           role={role}
           currentUsername={currentUsername}
-          listingOffers={sellerRequests.filter((request) => request.listing.id === selected.id)}
+          listingOffers={selectedListingOffers}
           onClose={() => setSelected(null)}
           onAction={(message) => {
             showToast(message);
