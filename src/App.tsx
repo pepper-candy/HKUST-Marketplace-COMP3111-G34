@@ -1067,11 +1067,19 @@ function DetailModal({
                           </small>
                           {offer.detail && <p>{offer.detail}</p>}
                         </div>
+                        <button
+                          type="button"
+                          className="deal-text-action"
+                          onClick={() => onChat()}
+                        >
+                          <Icon name="message" size={16} /> Open chat
+                        </button>
                       </article>
                     ))}
                   </div>
                 </div>
               )}
+              {!listingOffers.some((offer) => offer.type !== "Chat") && (
               <div className="detail-actions">
                 <button className="primary-action" onClick={openAction} disabled={submitting}>
                   {submitting
@@ -1088,6 +1096,7 @@ function DetailModal({
                   Chat
                 </button>
               </div>
+              )}
               <button
                 className="report-link"
                 onClick={() => {
