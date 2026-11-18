@@ -2091,6 +2091,7 @@ function MyDealsPage({
   onRefresh: () => Promise<unknown>;
 }) {
   const [ratingDeal, setRatingDeal] = useState<BuyerDeal | null>(null);
+  const [acceptingDealId, setAcceptingDealId] = useState<number | null>(null);
   const [tab, setTab] = useState<"Active" | "Chats" | "Completed">("Active");
   const [chats, setChats] = useState<api.MyChatThread[]>([]);
   const activeDeals = deals.filter((deal) => !deal.completed);
@@ -2119,14 +2120,39 @@ function MyDealsPage({
       .catch((err) => onAction(err instanceof Error ? err.message : "Could not return item."));
   };
 
-  const acceptCounter = (deal: BuyerDeal) => {
-    void api
-      .acceptCounterOffer(deal.id)
-      .then(() => onRefresh())
-      .then(() => onAction(`${deal.listing.title} counter offer accepted`))
-      .catch((err) =>
-        onAction(err instanceof Error ? err.message : "Could not accept counter offer."),
+  const acceptCounter = async (deal: BuyerDeal) => {
+    if (acceptingDealId !== null) return;
+    setAcceptingDealId(deal.id);
+    try {
+      await api.acceptCounterOffer(deal.id);
+      const acceptedStatus =
+        deal.kind === "Offer"
+          ? "Accepted · Reserved"
+          : deal.kind === "Borrow"
+            ? "Accepted · Lent"
+            : "Accepted · Given";
+      onDealsChange(
+        deals.map((item) =>
+          item.id === deal.id
+            ? {
+                ...item,
+                status: acceptedStatus,
+                detail: `${item.detail ? `${item.detail} · ` : ""}Buyer accepted the counter offer`,
+              }
+            : item,
+        ),
       );
+      onAction(`${deal.listing.title} counter offer accepted`);
+      try {
+        await onRefresh();
+      } catch {
+        // The acceptance RPC succeeded; a later snapshot refresh should reconcile any stale UI state.
+      }
+    } catch (err) {
+      onAction(err instanceof Error ? err.message : "Could not accept counter offer.");
+    } finally {
+      setAcceptingDealId(null);
+    }
   };
 
   const dealCard = (deal: BuyerDeal) => (
@@ -2180,8 +2206,13 @@ function MyDealsPage({
             </button>
           )}
           {deal.status === "Countered" && !deal.completed && (
-            <button className="primary-action" onClick={() => acceptCounter(deal)}>
-              Accept Counter
+            <button
+              type="button"
+              className="primary-action"
+              disabled={acceptingDealId === deal.id}
+              onClick={() => void acceptCounter(deal)}
+            >
+              {acceptingDealId === deal.id ? "Accepting…" : "Accept Counter"}
             </button>
           )}
           {(deal.kind === "Claim" ||
