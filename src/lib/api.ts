@@ -413,6 +413,73 @@ function isToday(iso: string) {
   return date.toDateString() === now.toDateString();
 }
 
+const OPTIMISTIC_CHAT_ID = 1_000_000_000_000;
+
+function notificationTone(value: string | null | undefined): NotificationItem["tone"] {
+  if (value === "gold" || value === "green" || value === "red") return value;
+  return "navy";
+}
+
+export function notificationFromRow(row: {
+  id: number;
+  category: string;
+  title: string;
+  message: string;
+  icon?: string | null;
+  tone?: string | null;
+  action?: string | null;
+  created_at: string;
+}): NotificationItem {
+  return {
+    id: Number(row.id),
+    category: row.category,
+    title: row.title,
+    message: row.message,
+    timestamp: formatRelative(row.created_at),
+    dateGroup: isToday(row.created_at) ? "Today" : "Earlier",
+    icon: row.icon || "bell",
+    tone: notificationTone(row.tone),
+    action: row.action ?? undefined,
+  };
+}
+
+export function chatMessageFromRow(
+  row: {
+    id: number;
+    sender_id: string;
+    body: string;
+    kind?: string | null;
+    created_at: string;
+  },
+  myRole: Role,
+  myId?: string,
+): ChatMessage {
+  const mine = row.sender_id === myId;
+  const sender: ChatMessage["sender"] =
+    myRole === "Seller" ? (mine ? "seller" : "buyer") : mine ? "buyer" : "seller";
+  return {
+    id: Number(row.id),
+    sender,
+    body: row.body,
+    time: formatClock(row.created_at),
+    kind: row.kind === "offer" ? "offer" : "message",
+  };
+}
+
+export function mergeRealtimeChatMessage(list: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
+  if (list.some((item) => item.id === incoming.id)) return list;
+  const temp = [...list]
+    .reverse()
+    .find(
+      (item) =>
+        item.id > OPTIMISTIC_CHAT_ID &&
+        item.body === incoming.body &&
+        item.sender === incoming.sender,
+    );
+  if (temp) return list.map((item) => (item.id === temp.id ? incoming : item));
+  return [...list, incoming];
+}
+
 function usernameOf(profiles: ProfileRow[], id: string) {
   return profiles.find((profile) => profile.id === id)?.username ?? "unknown";
 }
@@ -724,17 +791,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     })
     .filter((request): request is SellerRequest => Boolean(request));
 
-  const notifications: NotificationItem[] = notificationRows.map((row) => ({
-    id: row.id,
-    category: row.category,
-    title: row.title,
-    message: row.message,
-    timestamp: formatRelative(row.created_at),
-    dateGroup: isToday(row.created_at) ? "Today" : "Earlier",
-    icon: row.icon || "bell",
-    tone: row.tone,
-    action: row.action ?? undefined,
-  }));
+  const notifications: NotificationItem[] = notificationRows.map((row) => notificationFromRow(row));
 
   const reviewListings: ReviewListing[] = listingRows.map((row) => {
     const listing = listingUiById.get(row.id)!;
@@ -1168,30 +1225,133 @@ export async function loadChatMessages(threadId: number, myRole: Role) {
   throwIf(error);
   const { data: user } = await supabase.auth.getUser();
   const myId = user.user?.id;
-  return (data ?? []).map((row) => {
-    const mine = row.sender_id === myId;
-    const sender: ChatMessage["sender"] =
-      myRole === "Seller" ? (mine ? "seller" : "buyer") : mine ? "buyer" : "seller";
-    return {
-      id: row.id as number,
-      sender,
-      body: row.body as string,
-      time: formatClock(row.created_at as string),
-      kind: (row.kind as ChatMessage["kind"]) ?? "message",
-    } satisfies ChatMessage;
-  });
+  return (data ?? []).map((row) => chatMessageFromRow(row, myRole, myId));
 }
 
-export async function sendChatMessage(threadId: number, body: string, kind: "message" | "offer" = "message") {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error("Not signed in.");
-  const { error } = await supabase.from("chat_messages").insert({
-    thread_id: threadId,
-    sender_id: data.user.id,
-    body,
-    kind,
-  });
+export async function sendChatMessage(
+  threadId: number,
+  body: string,
+  kind: "message" | "offer" = "message",
+  myRole: Role = "Buyer",
+) {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error("Not signed in.");
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .insert({
+      thread_id: threadId,
+      sender_id: auth.user.id,
+      body,
+      kind,
+    })
+    .select("id, sender_id, body, kind, created_at, offer_id")
+    .single();
   throwIf(error);
+  if (!data) throw new Error("Could not send message.");
+  return chatMessageFromRow(data, myRole, auth.user.id);
+}
+
+type NotificationChangeRow = {
+  id: number;
+  user_id: string;
+  category: string;
+  title: string;
+  message: string;
+  icon?: string | null;
+  tone?: string | null;
+  action?: string | null;
+  read_at?: string | null;
+  created_at: string;
+};
+
+export function subscribeMyNotifications(
+  userId: string,
+  handlers: {
+    onInsert: (item: NotificationItem, read: boolean) => void;
+    onUpdate: (item: NotificationItem, read: boolean) => void;
+  },
+) {
+  const apply = (
+    raw: unknown,
+    handler: (item: NotificationItem, read: boolean) => void,
+  ) => {
+    if (!raw || typeof raw !== "object") return;
+    const row = raw as NotificationChangeRow;
+    if (row.id == null || !row.created_at) return;
+    try {
+      handler(notificationFromRow(row), Boolean(row.read_at));
+    } catch {
+      /* Realtime payload mapping must not crash the app. */
+    }
+  };
+
+  try {
+    const channel = supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        (payload) => apply(payload.new, handlers.onInsert),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        (payload) => apply(payload.new, handlers.onUpdate),
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  } catch {
+    return () => {};
+  }
+}
+
+type ChatChangeRow = {
+  id: number;
+  thread_id: number;
+  sender_id: string;
+  body: string;
+  kind?: string | null;
+  created_at: string;
+};
+
+export function subscribeChatThread(
+  threadId: number,
+  myRole: Role,
+  myId: string,
+  onInsert: (message: ChatMessage) => void,
+) {
+  try {
+    const channel = supabase
+      .channel(`chat:${threadId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `thread_id=eq.${threadId}`,
+        },
+        (payload) => {
+          const row = payload.new as ChatChangeRow;
+          if (row?.id == null || !row.sender_id || !row.body || !row.created_at) return;
+          try {
+            onInsert(chatMessageFromRow(row, myRole, myId));
+          } catch {
+            /* Realtime payload mapping must not crash the app. */
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  } catch {
+    return () => {};
+  }
 }
 
 const LISTING_PHOTO_BUCKET = "listing-photos";

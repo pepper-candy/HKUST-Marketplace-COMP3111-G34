@@ -1258,7 +1258,9 @@ function ChatScreen({
   counterparty: string;
   activeOfferId: number | null;
   messages: ChatMessage[];
-  onMessagesChange: (messages: ChatMessage[]) => void;
+  onMessagesChange: (
+    messages: ChatMessage[] | ((current: ChatMessage[]) => ChatMessage[]),
+  ) => void;
   onBack: () => void;
   onOpenListing: (listing: Listing) => void;
   onRefresh: () => Promise<unknown>;
@@ -1283,28 +1285,43 @@ function ChatScreen({
     return messages.filter((message) => message.body.toLowerCase().includes(normalized));
   }, [messages, query]);
 
-  const appendMessage = (message: Omit<ChatMessage, "id" | "time">) => {
-    const nextMessage: ChatMessage = {
+  const sendOptimistic = (message: Omit<ChatMessage, "id" | "time">, kind: "message" | "offer") => {
+    if (threadId == null) return;
+    const tempId = Date.now();
+    const temp: ChatMessage = {
       ...message,
-      id: Date.now(),
+      id: tempId,
       time: new Intl.DateTimeFormat("en-HK", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
       }).format(new Date()),
     };
-    onMessagesChange([...messages, nextMessage]);
+    onMessagesChange((current) => [...current, temp]);
+    void api
+      .sendChatMessage(threadId, message.body, kind, role)
+      .then((saved) => {
+        onMessagesChange((current) => {
+          if (current.some((item) => item.id === saved.id)) {
+            return current.filter((item) => item.id !== tempId);
+          }
+          return current.map((item) =>
+            item.id === tempId ? { ...saved, offerStatus: item.offerStatus } : item,
+          );
+        });
+      })
+      .catch((err) => {
+        onMessagesChange((current) => current.filter((item) => item.id !== tempId));
+        onAction(err instanceof Error ? err.message : "Could not send message.");
+      });
   };
 
   const sendMessage = (event: React.FormEvent) => {
     event.preventDefault();
     const body = draft.trim();
     if (!body || threadId == null) return;
-    appendMessage({ sender: currentSender, body, kind: "message" });
     setDraft("");
-    void api.sendChatMessage(threadId, body, "message").catch((err) => {
-      onAction(err instanceof Error ? err.message : "Could not send message.");
-    });
+    sendOptimistic({ sender: currentSender, body, kind: "message" }, "message");
   };
 
   const sendFormalOffer = (event: React.FormEvent) => {
@@ -1339,15 +1356,17 @@ function ChatScreen({
       return;
     }
 
-    appendMessage({
-      sender: currentSender,
-      body,
-      kind: "offer",
-      offerStatus: "Pending",
-    });
+    sendOptimistic(
+      {
+        sender: currentSender,
+        body,
+        kind: "offer",
+        offerStatus: "Pending",
+      },
+      "offer",
+    );
 
     if (threadId != null) {
-      void api.sendChatMessage(threadId, body, "offer");
       if (role === "Seller" && activeOfferId) {
         void api
           .respondToOffer(activeOfferId, "counter", {
@@ -6408,6 +6427,44 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!authenticated || !currentUserId) return;
+    return api.subscribeMyNotifications(currentUserId, {
+      onInsert: (item, read) => {
+        setNotifications((current) =>
+          current.some((entry) => entry.id === item.id) ? current : [item, ...current],
+        );
+        if (read) {
+          setNotificationReads((ids) => (ids.includes(item.id) ? ids : [...ids, item.id]));
+        }
+      },
+      onUpdate: (item, read) => {
+        setNotifications((current) =>
+          current.some((entry) => entry.id === item.id)
+            ? current.map((entry) => (entry.id === item.id ? item : entry))
+            : [item, ...current],
+        );
+        setNotificationReads((ids) => {
+          if (read) return ids.includes(item.id) ? ids : [...ids, item.id];
+          return ids.filter((id) => id !== item.id);
+        });
+      },
+    });
+  }, [authenticated, currentUserId]);
+
+  useEffect(() => {
+    if (!authenticated || !currentUserId || !chatListing || chatThreadId == null) return;
+    const listingId = chatListing.id;
+    return api.subscribeChatThread(chatThreadId, role, currentUserId, (message) => {
+      setChatMessages((current) => {
+        const list = current[listingId] ?? [];
+        const next = api.mergeRealtimeChatMessage(list, message);
+        if (next === list) return current;
+        return { ...current, [listingId]: next };
+      });
+    });
+  }, [authenticated, currentUserId, chatListing?.id, chatThreadId, role]);
+
   const recordFormalChat = async (listing: Listing, buyerUsername: string, body: string) => {
     try {
       const buyer = users.find((user) => user.username === buyerUsername);
@@ -6415,7 +6472,7 @@ export default function App() {
         listing.id,
         role === "Buyer" ? currentUserId : buyer?.id,
       );
-      await api.sendChatMessage(threadId, body, "offer");
+      await api.sendChatMessage(threadId, body, "offer", role);
       const loaded = await api.loadChatMessages(threadId, role);
       setChatThreadId(threadId);
       setChatMessages((current) => ({ ...current, [listing.id]: loaded }));
@@ -6449,6 +6506,7 @@ export default function App() {
     setCurrentUsername(snap.currentUsername);
     setPage(navByRole[snap.role][0].label);
     setChatListing(null);
+    setChatThreadId(null);
     setAuthenticated(true);
     setAuthNotice("");
     void nextRole;
@@ -6469,6 +6527,7 @@ export default function App() {
     setSelected(null);
     setProfileSeller(null);
     setChatListing(null);
+    setChatThreadId(null);
   };
 
   if (bootstrapping) {
@@ -6633,9 +6692,18 @@ export default function App() {
               }
               messages={chatMessages[chatListing.id] ?? []}
               onMessagesChange={(messages) =>
-                setChatMessages((current) => ({ ...current, [chatListing.id]: messages }))
+                setChatMessages((current) => ({
+                  ...current,
+                  [chatListing.id]:
+                    typeof messages === "function"
+                      ? messages(current[chatListing.id] ?? [])
+                      : messages,
+                }))
               }
-              onBack={() => setChatListing(null)}
+              onBack={() => {
+                setChatListing(null);
+                setChatThreadId(null);
+              }}
               onOpenListing={(listing) => {
                 setSelected(listing);
                 void refresh();
