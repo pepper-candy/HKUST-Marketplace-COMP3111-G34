@@ -1201,6 +1201,21 @@ footer > span {
   font-size: 7px;
   font-weight: 700;
 }
+.message-bubble.formal.stale {
+  opacity: 0.72;
+  border-color: #c5ccd3;
+  color: #6d7a86;
+  background: #eef1f4;
+  filter: grayscale(0.35);
+}
+.message-bubble.formal.stale .formal-label,
+.message-bubble.formal.stale p {
+  color: #7a8693;
+}
+.message-bubble.formal.stale .offer-status {
+  color: #6d7a86;
+  background: rgba(255, 255, 255, 0.55);
+}
 .chat-empty {
   min-height: 220px;
   display: flex;

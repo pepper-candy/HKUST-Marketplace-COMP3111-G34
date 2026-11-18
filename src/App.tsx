@@ -25,11 +25,6 @@ type ListingOfferItem = {
   status: string;
 };
 
-function offerAmountKey(text: string) {
-  const match = text.replace(/,/g, "").match(/HK\$\s*([\d.]+)/i);
-  return match?.[1]?.replace(/\.0+$/, "") ?? text.trim().toLowerCase();
-}
-
 function chatOffersForListing(
   listing: Listing,
   messages: ChatMessage[],
@@ -39,24 +34,26 @@ function chatOffersForListing(
     .filter((message) => message.kind === "offer")
     .map((message) => ({
       id: `chat-${message.id}`,
-      buyer: message.sender === "buyer" ? buyerName || "buyer" : listing.seller,
+      buyer: buyerName || (message.sender === "buyer" ? "buyer" : listing.seller),
       type: /borrow/i.test(message.body) ? "Borrow" : "Offer",
-      detail: message.body.replace(/^Formal offer:\s*/i, "Proposed price: "),
+      detail: message.body
+        .replace(/^Formal offer:\s*/i, "Proposed price: ")
+        .replace(/^Formal counter:\s*/i, "Counter: ")
+        .replace(/^Seller counter:\s*/i, "Counter: "),
       status: message.offerStatus ?? "Pending",
     }));
 }
 
+function latestOffersByBuyer(offers: ListingOfferItem[]) {
+  const latest = new Map<string, ListingOfferItem>();
+  for (const offer of offers) {
+    latest.set(offer.buyer.trim().toLowerCase(), offer);
+  }
+  return [...latest.values()];
+}
+
 function mergeListingOffers(primary: ListingOfferItem[], extra: ListingOfferItem[]) {
-  const seen = new Set(primary.map((offer) => offerAmountKey(offer.detail)));
-  return [
-    ...extra.filter((offer) => {
-      const key = offerAmountKey(offer.detail);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }),
-    ...primary,
-  ];
+  return latestOffersByBuyer([...primary.slice().reverse(), ...extra]);
 }
 
 const navByRole: Record<Role, { label: string; icon: string }[]> = {
@@ -1247,6 +1244,7 @@ function ChatScreen({
   role,
   threadId,
   counterparty,
+  activeOfferId,
   messages,
   onMessagesChange,
   onBack,
@@ -1258,6 +1256,7 @@ function ChatScreen({
   role: Role;
   threadId: number | null;
   counterparty: string;
+  activeOfferId: number | null;
   messages: ChatMessage[];
   onMessagesChange: (messages: ChatMessage[]) => void;
   onBack: () => void;
@@ -1273,6 +1272,10 @@ function ChatScreen({
   const [endDate, setEndDate] = useState("");
   const [offerError, setOfferError] = useState("");
   const currentSender = role === "Seller" ? "seller" : "buyer";
+  const latestFormalId = [...messages].filter((message) => message.kind === "offer").at(-1)?.id;
+  const sendingCounter =
+    role === "Seller" ||
+    [...messages].filter((message) => message.kind === "offer").at(-1)?.sender === "seller";
 
   const visibleMessages = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -1307,18 +1310,19 @@ function ChatScreen({
   const sendFormalOffer = (event: React.FormEvent) => {
     event.preventDefault();
     setOfferError("");
+    const formatDate = (date: string) =>
+      new Intl.DateTimeFormat("en-HK", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(date));
 
+    let body = "";
     if (listing.type === "Sell") {
       if (!Number(offerPrice) || Number(offerPrice) <= 0) {
         setOfferError("Enter a valid offer amount.");
         return;
       }
-      appendMessage({
-        sender: "buyer",
-        body: `Formal offer: HK$${Number(offerPrice).toLocaleString()}`,
-        kind: "offer",
-        offerStatus: "Pending",
-      });
+      body = `${sendingCounter ? "Formal counter" : "Formal offer"}: HK$${Number(offerPrice).toLocaleString()}`;
     } else if (listing.type === "Lend") {
       if (!startDate || !endDate) {
         setOfferError("Choose both a start and end time.");
@@ -1328,40 +1332,58 @@ function ChatScreen({
         setOfferError("End time must be at least 5 seconds after the start time.");
         return;
       }
-      const formatDate = (date: string) =>
-        new Intl.DateTimeFormat("en-HK", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        }).format(new Date(date));
-      appendMessage({
-        sender: "buyer",
-        body: `Borrow request: ${formatDate(startDate)} to ${formatDate(endDate)}`,
-        kind: "offer",
-        offerStatus: "Pending",
-      });
+      body = sendingCounter
+        ? `Formal counter: ${formatDate(startDate)} to ${formatDate(endDate)}`
+        : `Borrow request: ${formatDate(startDate)} to ${formatDate(endDate)}`;
+    } else {
+      return;
     }
 
+    appendMessage({
+      sender: currentSender,
+      body,
+      kind: "offer",
+      offerStatus: "Pending",
+    });
+
     if (threadId != null) {
-      const offerBody =
-        listing.type === "Sell"
-          ? `Formal offer: HK$${Number(offerPrice).toLocaleString()}`
-          : `Borrow request: ${startDate} to ${endDate}`;
-      void api.sendChatMessage(threadId, offerBody, "offer");
-      void api
-        .submitListingAction(listing, {
-          price: listing.type === "Sell" ? Number(offerPrice) : undefined,
-          start: startDate,
-          end: endDate,
-        })
-        .then(() => onRefresh())
-        .catch((err) => setOfferError(err instanceof Error ? err.message : "Could not send offer."));
+      void api.sendChatMessage(threadId, body, "offer");
+      if (role === "Seller" && activeOfferId) {
+        void api
+          .respondToOffer(activeOfferId, "counter", {
+            price: listing.type === "Sell" ? Number(offerPrice) : undefined,
+            start: startDate,
+            end: endDate,
+          })
+          .then(() => onRefresh())
+          .catch((err) =>
+            setOfferError(err instanceof Error ? err.message : "Could not send counter."),
+          );
+      } else if (role === "Buyer") {
+        void api
+          .submitListingAction(listing, {
+            price: listing.type === "Sell" ? Number(offerPrice) : undefined,
+            start: startDate,
+            end: endDate,
+          })
+          .then(() => onRefresh())
+          .catch((err) =>
+            setOfferError(err instanceof Error ? err.message : "Could not send offer."),
+          );
+      }
     }
 
     setOfferOpen(false);
     setOfferPrice("");
     setStartDate("");
     setEndDate("");
-    onAction(listing.type === "Sell" ? "Formal offer sent" : "Borrow request sent");
+    onAction(
+      sendingCounter
+        ? "Formal counter sent"
+        : listing.type === "Sell"
+          ? "Formal offer sent"
+          : "Borrow request sent",
+    );
   };
 
   return (
@@ -1443,16 +1465,28 @@ function ChatScreen({
                   </div>
                 )}
                 <div>
-                  <div className={`message-bubble ${message.kind === "offer" ? "formal" : ""}`}>
+                  <div
+                    className={`message-bubble ${message.kind === "offer" ? "formal" : ""} ${
+                      message.kind === "offer" && message.id !== latestFormalId ? "stale" : ""
+                    }`}
+                  >
                     {message.kind === "offer" && (
                       <span className="formal-label">
                         <Icon name="bag" size={14} /> FORMAL{" "}
-                        {listing.type === "Sell" ? "OFFER" : "BORROW REQUEST"}
+                        {/counter/i.test(message.body)
+                          ? "COUNTER"
+                          : listing.type === "Sell"
+                            ? "OFFER"
+                            : "BORROW REQUEST"}
                       </span>
                     )}
                     <p>{message.body}</p>
-                    {message.kind === "offer" && message.offerStatus && (
-                      <span className="offer-status">{message.offerStatus}</span>
+                    {message.kind === "offer" && (
+                      <span className="offer-status">
+                        {message.id !== latestFormalId
+                          ? "No longer valid"
+                          : (message.offerStatus ?? "Current")}
+                      </span>
                     )}
                   </div>
                   <time>
@@ -1476,7 +1510,13 @@ function ChatScreen({
               <div>
                 <span>FORMAL ACTION</span>
                 <strong>
-                  {listing.type === "Sell" ? "Make an offer" : "Request a lending period"}
+                  {sendingCounter
+                    ? listing.type === "Sell"
+                      ? "Send a counter"
+                      : "Counter the lending period"
+                    : listing.type === "Sell"
+                      ? "Make an offer"
+                      : "Request a lending period"}
                 </strong>
                 <small>This will be saved as part of the chat history.</small>
               </div>
@@ -1533,17 +1573,17 @@ function ChatScreen({
                 Cancel
               </button>
               <button className="primary-action">
-                Send formal {listing.type === "Sell" ? "offer" : "request"}
+                Send formal {sendingCounter ? "counter" : listing.type === "Sell" ? "offer" : "request"}
               </button>
             </div>
           </form>
         )}
 
         <div className="chat-composer">
-          {role === "Buyer" && listing.type !== "Give Away" && (
+          {listing.type !== "Give Away" && (
             <button className="offer-trigger" onClick={() => setOfferOpen(!offerOpen)}>
               <Icon name="bag" size={17} />
-              Make Offer
+              {sendingCounter ? "Send counter" : "Make Offer"}
             </button>
           )}
           <form onSubmit={sendMessage}>
@@ -2149,6 +2189,7 @@ function SellerRequestsPage({
   buyerDealState,
   onBuyerDealsChange,
   onChatListing,
+  onRecordFormalChat,
   onAction,
   onRefresh,
 }: {
@@ -2157,6 +2198,7 @@ function SellerRequestsPage({
   buyerDealState: BuyerDeal[];
   onBuyerDealsChange: (deals: BuyerDeal[]) => void;
   onChatListing: (listing: Listing, participant?: string) => void;
+  onRecordFormalChat: (listing: Listing, buyer: string, body: string) => void;
   onAction: (message: string) => void;
   onRefresh: () => Promise<unknown>;
 }) {
@@ -2256,6 +2298,10 @@ function SellerRequestsPage({
       }
       detail = `Seller proposed new lending dates: ${counterStart.replace("T", " ")} → ${counterEnd.replace("T", " ")}`;
     }
+    const chatBody =
+      countering.type === "Offer"
+        ? `Formal counter: HK$${Number(counterPrice).toLocaleString()}`
+        : `Formal counter: ${counterStart.replace("T", " ")} → ${counterEnd.replace("T", " ")}`;
     void api
       .respondToOffer(countering.id, "counter", {
         price: countering.type === "Offer" ? Number(counterPrice) : undefined,
@@ -2264,6 +2310,7 @@ function SellerRequestsPage({
       })
       .then(() => onRefresh())
       .catch((err) => onAction(err instanceof Error ? err.message : "Could not send counter."));
+    onRecordFormalChat(countering.listing, countering.buyer, chatBody);
     onRequestsChange(
       requests.map((request) =>
         request.id === countering.id ? { ...request, status: "Countered", detail } : request,
@@ -5488,6 +5535,7 @@ function SupportingPage({
   onRefresh,
   onOpenListing,
   onChatListing,
+  onRecordFormalChat,
   onNavigate,
   buyerDealState,
   onBuyerDealsChange,
@@ -5523,6 +5571,7 @@ function SupportingPage({
   onRefresh: () => Promise<unknown>;
   onOpenListing: (listing: Listing) => void;
   onChatListing: (listing: Listing, participant?: string) => void;
+  onRecordFormalChat: (listing: Listing, buyer: string, body: string) => void;
   onNavigate: (page: string) => void;
   buyerDealState: BuyerDeal[];
   onBuyerDealsChange: (deals: BuyerDeal[]) => void;
@@ -5595,6 +5644,7 @@ function SupportingPage({
         buyerDealState={buyerDealState}
         onBuyerDealsChange={onBuyerDealsChange}
         onChatListing={onChatListing}
+        onRecordFormalChat={onRecordFormalChat}
         onAction={onAction}
         onRefresh={onRefresh}
       />
@@ -6358,6 +6408,22 @@ export default function App() {
     };
   }, []);
 
+  const recordFormalChat = async (listing: Listing, buyerUsername: string, body: string) => {
+    try {
+      const buyer = users.find((user) => user.username === buyerUsername);
+      const threadId = await api.openChat(
+        listing.id,
+        role === "Buyer" ? currentUserId : buyer?.id,
+      );
+      await api.sendChatMessage(threadId, body, "offer");
+      const loaded = await api.loadChatMessages(threadId, role);
+      setChatThreadId(threadId);
+      setChatMessages((current) => ({ ...current, [listing.id]: loaded }));
+    } catch {
+      /* chat recording should not block the counter itself */
+    }
+  };
+
   const openChat = async (listing: Listing, participant?: string) => {
     try {
       const buyerUsername = role === "Buyer" ? currentUsername : (participant ?? "");
@@ -6557,6 +6623,14 @@ export default function App() {
               role={role}
               threadId={chatThreadId}
               counterparty={chatCounterparty || chatListing.seller}
+              activeOfferId={
+                sellerRequests.find(
+                  (request) =>
+                    request.listing.id === chatListing.id &&
+                    request.buyer === chatCounterparty &&
+                    (request.status === "Pending" || request.status === "Countered"),
+                )?.id ?? null
+              }
               messages={chatMessages[chatListing.id] ?? []}
               onMessagesChange={(messages) =>
                 setChatMessages((current) => ({ ...current, [chatListing.id]: messages }))
@@ -6579,6 +6653,7 @@ export default function App() {
               onRefresh={refresh}
               onOpenListing={setSelected}
               onChatListing={openChat}
+              onRecordFormalChat={recordFormalChat}
               onNavigate={setPage}
               buyerDealState={buyerDealState}
               onBuyerDealsChange={setBuyerDealState}
