@@ -807,7 +807,18 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     profiles.find((profile) => profile.role === "admin");
 
   const liveListings = listingRows
-    .filter((row) => row.status === "live")
+    .filter((row) => {
+      if (row.status !== "live") return false;
+
+      // Do not show a sell/claim listing in Browse if an accepted or completed
+      // deal is associated with it, even if an old database/RPC state is stale.
+      return !offers.some(
+        (offer) =>
+          offer.listing_id === row.id &&
+          (offer.kind === "offer" || offer.kind === "claim") &&
+          ["accepted", "completed"].includes(offer.status),
+      );
+    })
     .map((row) => listingUiById.get(row.id)!);
 
   const buyerDeals: BuyerDeal[] = offers
