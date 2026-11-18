@@ -1547,6 +1547,7 @@ export function subscribeMyNotifications(
   handlers: {
     onInsert: (item: NotificationItem, read: boolean) => void;
     onUpdate: (item: NotificationItem, read: boolean) => void;
+    onDealsChange?: () => void;
   },
 ) {
   const apply = (
@@ -1563,22 +1564,38 @@ export function subscribeMyNotifications(
     }
   };
 
+  let dealsTimer: ReturnType<typeof setTimeout> | null = null;
+  const bumpDeals = () => {
+    if (!handlers.onDealsChange) return;
+    if (dealsTimer) window.clearTimeout(dealsTimer);
+    dealsTimer = window.setTimeout(() => handlers.onDealsChange?.(), 200);
+  };
+
   try {
     const channel = supabase
-      .channel(`notifications:${userId}`)
+      .channel(`session:${userId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-        (payload) => apply(payload.new, handlers.onInsert),
+        (payload) => {
+          apply(payload.new, handlers.onInsert);
+          bumpDeals();
+        },
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
         (payload) => apply(payload.new, handlers.onUpdate),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "offers" },
+        () => bumpDeals(),
+      )
       .subscribe();
 
     return () => {
+      if (dealsTimer) window.clearTimeout(dealsTimer);
       void supabase.removeChannel(channel);
     };
   } catch {

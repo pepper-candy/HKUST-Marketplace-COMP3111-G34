@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "./lib/api";
 import { passwordRules } from "./lib/api";
 
@@ -346,9 +346,11 @@ function ListingCard({ listing, onOpen }: { listing: Listing; onOpen: () => void
 function Browse({
   listings,
   onOpen,
+  onRefreshListings,
 }: {
   listings: Listing[];
   onOpen: (listing: Listing) => void;
+  onRefreshListings: () => Promise<unknown>;
 }) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("All types");
@@ -356,6 +358,7 @@ function Browse({
   const [priceRange, setPriceRange] = useState("Any price");
   const [condition, setCondition] = useState("Any condition");
   const [sort, setSort] = useState("Newest");
+  const [refreshing, setRefreshing] = useState(false);
 
   const filtered = useMemo(() => {
     const result = listings.filter((item) => {
@@ -423,14 +426,27 @@ function Browse({
           <h2>Browse marketplace</h2>
           <p>{filtered.length} active listings from the HKUST community</p>
         </div>
-        <div className="sort-control">
-          <span>Sort by</span>
-          <select value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option>Newest</option>
-            <option>Oldest</option>
-            <option>Price: low to high</option>
-            <option>Price: high to low</option>
-          </select>
+        <div className="browse-heading-actions">
+          <button
+            type="button"
+            className="browse-refresh"
+            disabled={refreshing}
+            onClick={() => {
+              setRefreshing(true);
+              void onRefreshListings().finally(() => setRefreshing(false));
+            }}
+          >
+            {refreshing ? "Refreshing…" : "Refresh listings"}
+          </button>
+          <div className="sort-control">
+            <span>Sort by</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option>Newest</option>
+              <option>Oldest</option>
+              <option>Price: low to high</option>
+              <option>Price: high to low</option>
+            </select>
+          </div>
         </div>
       </section>
 
@@ -6818,13 +6834,18 @@ export default function App() {
     setTimeout(() => setToast(""), 2800);
   };
 
-  const applySnapshot = (snap: api.MarketplaceSnapshot) => {
+  const applySnapshot = (
+    snap: api.MarketplaceSnapshot,
+    options?: { includeBrowse?: boolean },
+  ) => {
     setUsers(snap.users);
     setAdminProfile(snap.adminProfile);
     setCurrentUsername(snap.currentUsername);
     setCurrentUserId(snap.currentUserId);
     setRole(snap.role);
-    setLiveListings(snap.liveListings);
+    if (options?.includeBrowse !== false) {
+      setLiveListings(snap.liveListings);
+    }
     setBuyerDealState(snap.buyerDeals);
     setRatedDealIds(snap.ratedDealIds);
     setSellerRequests(snap.sellerRequests);
@@ -6840,11 +6861,13 @@ export default function App() {
     setSellerStats(snap.sellerStats);
   };
 
-  const refresh = async () => {
+  const refresh = async (options?: { includeBrowse?: boolean }) => {
     const snap = await api.loadSnapshot();
-    applySnapshot(snap);
+    applySnapshot(snap, options);
     return snap;
   };
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
 
   useEffect(() => {
     let cancelled = false;
@@ -6884,6 +6907,9 @@ export default function App() {
           setNotificationReads((ids) => (ids.includes(item.id) ? ids : [...ids, item.id]));
         }
       },
+      onDealsChange: () => {
+        void refreshRef.current({ includeBrowse: false });
+      },
       onUpdate: (item, read) => {
         setNotifications((current) =>
           current.some((entry) => entry.id === item.id)
@@ -6897,6 +6923,17 @@ export default function App() {
       },
     });
   }, [authenticated, currentUserId]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    if (
+      page === "Offers / Requests" ||
+      page === "My Deals" ||
+      page === "Notifications"
+    ) {
+      void refreshRef.current({ includeBrowse: false });
+    }
+  }, [authenticated, page]);
 
   useEffect(() => {
     if (!authenticated || !currentUserId || !chatListing || chatThreadId == null) return;
@@ -7199,7 +7236,11 @@ export default function App() {
               onAction={showToast}
             />
           ) : role === "Buyer" && page === "Browse" ? (
-            <Browse listings={liveListings} onOpen={setSelected} />
+            <Browse
+              listings={liveListings}
+              onOpen={setSelected}
+              onRefreshListings={() => refresh({ includeBrowse: true })}
+            />
           ) : (
             <SupportingPage
               page={page}
