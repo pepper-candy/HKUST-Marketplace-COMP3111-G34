@@ -1207,6 +1207,98 @@ export async function markNotificationsRead(ids: number[]) {
   if (error) throw new Error(rpcMessage(error));
 }
 
+export async function listListingChatPeople(listingId: number) {
+  const { data: threads, error } = await supabase
+    .from("chat_threads")
+    .select("id, buyer_id, created_at")
+    .eq("listing_id", listingId)
+    .order("created_at", { ascending: false });
+  throwIf(error);
+  if (!threads?.length) return [];
+
+  const { data: profiles } = await supabase.from("profiles").select("id, username");
+  const usernameOfId = (id: string) =>
+    (profiles ?? []).find((profile) => profile.id === id)?.username ?? "buyer";
+
+  const { data: messages } = await supabase
+    .from("chat_messages")
+    .select("thread_id, body, created_at")
+    .in(
+      "thread_id",
+      threads.map((thread) => thread.id),
+    )
+    .order("created_at", { ascending: false });
+
+  const lastByThread = new Map<number, string>();
+  for (const message of messages ?? []) {
+    if (!lastByThread.has(message.thread_id as number)) {
+      lastByThread.set(message.thread_id as number, (message.body as string) ?? "");
+    }
+  }
+
+  return threads.map((thread) => ({
+    id: `thread-${thread.id}`,
+    buyer: usernameOfId(thread.buyer_id as string),
+    lastMessage: lastByThread.get(thread.id as number) ?? "",
+  }));
+}
+
+export async function findChatWithUsername(username: string) {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user || !username) return null;
+  const myId = auth.user.id;
+  const { data: other } = await supabase
+    .from("profiles")
+    .select("id, username")
+    .eq("username", username)
+    .maybeSingle();
+  if (!other?.id) return null;
+
+  const { data: threads, error } = await supabase
+    .from("chat_threads")
+    .select("id, listing_id, buyer_id, seller_id, created_at")
+    .or(
+      `and(buyer_id.eq.${myId},seller_id.eq.${other.id}),and(seller_id.eq.${myId},buyer_id.eq.${other.id})`,
+    );
+  throwIf(error);
+  if (!threads?.length) return null;
+
+  let thread = threads[0];
+  if (threads.length > 1) {
+    const { data: latest } = await supabase
+      .from("chat_messages")
+      .select("thread_id")
+      .in(
+        "thread_id",
+        threads.map((row) => row.id),
+      )
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latest?.thread_id) {
+      thread = threads.find((row) => row.id === latest.thread_id) ?? thread;
+    }
+  }
+
+  const { data: listingRow } = await supabase
+    .from("listings")
+    .select("*")
+    .eq("id", thread.listing_id)
+    .maybeSingle();
+  if (!listingRow) return null;
+  const { data: profiles } = await supabase.from("profiles").select("*");
+  return {
+    listing: mapListing(listingRow as ListingRow, (profiles ?? []) as ProfileRow[], []),
+    participant: other.username as string,
+    buyerId: thread.buyer_id as string,
+  };
+}
+
+export async function profileIdByUsername(username: string) {
+  const { data } = await supabase.from("profiles").select("id").eq("username", username).maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
 export async function openChat(listingId: number, buyerId?: string) {
   const { data, error } = await supabase.rpc("open_chat_thread", {
     p_listing_id: listingId,

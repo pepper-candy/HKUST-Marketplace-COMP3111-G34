@@ -56,6 +56,25 @@ function mergeListingOffers(primary: ListingOfferItem[], extra: ListingOfferItem
   return latestOffersByBuyer([...primary.slice().reverse(), ...extra]);
 }
 
+function withListingChatPeople(
+  offers: ListingOfferItem[],
+  people: { id: string; buyer: string; lastMessage: string }[],
+) {
+  const seen = new Set(offers.map((offer) => offer.buyer.trim().toLowerCase()));
+  return [
+    ...offers,
+    ...people
+      .filter((person) => person.buyer && !seen.has(person.buyer.trim().toLowerCase()))
+      .map((person) => ({
+        id: person.id,
+        buyer: person.buyer,
+        type: "Chat",
+        detail: person.lastMessage || "Conversation started",
+        status: "Chat",
+      })),
+  ];
+}
+
 const navByRole: Record<Role, { label: string; icon: string }[]> = {
   Buyer: [
     { label: "Browse", icon: "grid" },
@@ -3005,7 +3024,7 @@ function pageForNotificationAction(action: string, role: Role) {
   if (action === "View listing") {
     return role === "Admin" ? "All Listings" : role === "Seller" ? "My Listings" : "Browse";
   }
-  if (action === "View offer" || action === "Review request" || action === "Open chat") {
+  if (action === "View offer" || action === "Review request") {
     return role === "Seller" ? "Offers / Requests" : role === "Admin" ? "All Deals" : "My Deals";
   }
   if (action === "View deal" || action === "View deals") {
@@ -3164,6 +3183,16 @@ function NotificationBoard({
                                     onChatListing(target.listing, target.participant);
                                     return;
                                   }
+                                  const username = usernameFromNotification(item);
+                                  if (!username) return;
+                                  void api
+                                    .findChatWithUsername(username)
+                                    .then((found) => {
+                                      if (!found) return;
+                                      onChatListing(found.listing, found.participant);
+                                    })
+                                    .catch(() => undefined);
+                                  return;
                                 }
                                 const listing = listingFromNotification(
                                   `${item.title} ${item.message}`,
@@ -6339,6 +6368,9 @@ export default function App() {
   const [chatCounterparty, setChatCounterparty] = useState("");
   const [chatThreadId, setChatThreadId] = useState<number | null>(null);
   const [chatMessages, setChatMessages] = useState<Record<number, ChatMessage[]>>({});
+  const [listingChatPeople, setListingChatPeople] = useState<
+    { id: string; buyer: string; lastMessage: string }[]
+  >([]);
   const [buyerDealState, setBuyerDealState] = useState<BuyerDeal[]>([]);
   const [ratedDealIds, setRatedDealIds] = useState<number[]>([]);
   const [sellerRequests, setSellerRequests] = useState<SellerRequest[]>([]);
@@ -6465,6 +6497,26 @@ export default function App() {
     });
   }, [authenticated, currentUserId, chatListing?.id, chatThreadId, role]);
 
+  useEffect(() => {
+    if (!selected) {
+      setListingChatPeople([]);
+      return;
+    }
+    const listingId = selected.id;
+    let cancelled = false;
+    void api
+      .listListingChatPeople(listingId)
+      .then((people) => {
+        if (!cancelled) setListingChatPeople(people);
+      })
+      .catch(() => {
+        if (!cancelled) setListingChatPeople([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id]);
+
   const recordFormalChat = async (listing: Listing, buyerUsername: string, body: string) => {
     try {
       const buyer = users.find((user) => user.username === buyerUsername);
@@ -6485,10 +6537,11 @@ export default function App() {
     try {
       const buyerUsername = role === "Buyer" ? currentUsername : (participant ?? "");
       const buyer = users.find((user) => user.username === buyerUsername);
-      const threadId = await api.openChat(
-        listing.id,
-        role === "Buyer" ? currentUserId : buyer?.id,
-      );
+      const buyerId =
+        role === "Buyer"
+          ? currentUserId
+          : (buyer?.id ?? (buyerUsername ? await api.profileIdByUsername(buyerUsername) : null));
+      const threadId = await api.openChat(listing.id, buyerId ?? undefined);
       const messages = await api.loadChatMessages(threadId, role);
       setChatThreadId(threadId);
       setChatMessages((current) => ({ ...current, [listing.id]: messages }));
@@ -6573,35 +6626,38 @@ export default function App() {
     (item) => !notificationReads.includes(item.id),
   ).length;
   const selectedListingOffers = selected
-    ? mergeListingOffers(
-        selected.seller === currentUsername
-          ? sellerRequests
-              .filter((request) => request.listing.id === selected.id)
-              .map((request) => ({
-                id: request.id,
-                buyer: request.buyer,
-                type: request.type,
-                detail: request.detail,
-                status: request.status,
-              }))
-          : buyerDealState
-              .filter((deal) => deal.listing.id === selected.id)
-              .map((deal) => ({
-                id: deal.id,
-                buyer: currentUsername,
-                type: deal.kind,
-                detail: deal.detail,
-                status: deal.status,
-              })),
-        chatOffersForListing(
-          selected,
-          chatMessages[selected.id] ?? [],
+    ? withListingChatPeople(
+        mergeListingOffers(
           selected.seller === currentUsername
-            ? chatListing?.id === selected.id
-              ? chatCounterparty
-              : ""
-            : currentUsername,
+            ? sellerRequests
+                .filter((request) => request.listing.id === selected.id)
+                .map((request) => ({
+                  id: request.id,
+                  buyer: request.buyer,
+                  type: request.type,
+                  detail: request.detail,
+                  status: request.status,
+                }))
+            : buyerDealState
+                .filter((deal) => deal.listing.id === selected.id)
+                .map((deal) => ({
+                  id: deal.id,
+                  buyer: currentUsername,
+                  type: deal.kind,
+                  detail: deal.detail,
+                  status: deal.status,
+                })),
+          chatOffersForListing(
+            selected,
+            chatMessages[selected.id] ?? [],
+            selected.seller === currentUsername
+              ? chatListing?.id === selected.id
+                ? chatCounterparty
+                : ""
+              : currentUsername,
+          ),
         ),
+        listingChatPeople,
       )
     : [];
   const mobileNavItems =
