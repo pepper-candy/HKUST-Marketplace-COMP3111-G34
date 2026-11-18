@@ -48,7 +48,7 @@ For a graded demo the marketplace should not be empty. After `001` (and `002` if
 3. After photos are in, run `supabase/006_demo_match_photos_and_listings.sql`, then `supabase/007_fix_broken_and_follow_photos.sql` (do **not** re-run `003` / `005` / `006`). `007` replaces Unsplash IDs that 404 and adds extra listings whose copy follows the photo.
 4. Listing photo uploads: SQL Editor → paste `supabase/008_listing_photos_storage.sql` → **Run** (do **not** re-run `001`). Then confirm **Storage → listing-photos** is **Public**. New Create/Edit photos are compressed in the browser and stored as public URLs; existing Unsplash demo URLs stay.
 5. Live chat + notifications: SQL Editor → paste `supabase/009_realtime_chat_notifications.sql` → **Run** (do **not** re-run `001`). Enable Realtime in the Dashboard if `supabase_realtime` is off.
-6. One offer per buyer+listing (listing detail and chat Make Offer share the same row): SQL Editor → paste `supabase/010_unify_offers.sql` → **Run** (do **not** re-run `001`).
+6. One offer per buyer+listing and buyer acceptance of seller counters: SQL Editor → paste `supabase/010_unify_offers.sql` → **Run** (do **not** re-run `001`). This migration is safe to re-run.
 7. Log in from `demo/accounts.csv`. Use the **Buyer** or **Seller** portal that matches the row. Usernames have no `@` except admin.
 
 Counts (meant to look like a couple of weeks on campus, not a full year):
