@@ -1117,6 +1117,11 @@ export async function respondToOffer(
   if (error) throw new Error(rpcMessage(error));
 }
 
+export async function acceptCounterOffer(offerId: number) {
+  const { error } = await supabase.rpc("accept_counter_offer", { p_offer_id: offerId });
+  if (error) throw new Error(rpcMessage(error));
+}
+
 export async function returnBorrow(offerId: number) {
   const { error } = await supabase.rpc("return_borrow", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));

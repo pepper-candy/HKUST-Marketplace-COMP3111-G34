@@ -1898,6 +1898,16 @@ function MyDealsPage({
       .catch((err) => onAction(err instanceof Error ? err.message : "Could not return item."));
   };
 
+  const acceptCounter = (deal: BuyerDeal) => {
+    void api
+      .acceptCounterOffer(deal.id)
+      .then(() => onRefresh())
+      .then(() => onAction(`${deal.listing.title} counter offer accepted`))
+      .catch((err) =>
+        onAction(err instanceof Error ? err.message : "Could not accept counter offer."),
+      );
+  };
+
   const dealCard = (deal: BuyerDeal) => (
     <article className={`deal-card ${deal.completed ? "deal-completed" : ""}`} key={deal.id}>
       <button className="deal-image" onClick={() => onOpenListing(deal.listing)}>
@@ -1948,7 +1958,13 @@ function MyDealsPage({
               Return early
             </button>
           )}
-          {(deal.kind === "Claim" || (deal.kind === "Offer" && deal.status !== "Pending")) &&
+          {deal.status === "Countered" && !deal.completed && (
+            <button className="primary-action" onClick={() => acceptCounter(deal)}>
+              Accept Counter
+            </button>
+          )}
+          {(deal.kind === "Claim" ||
+            (deal.kind !== "Claim" && deal.status.startsWith("Accepted"))) &&
             !deal.completed && (
               <button className="primary-action" onClick={() => setRatingDeal(deal)}>
                 Mark as Complete
