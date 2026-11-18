@@ -48,6 +48,14 @@ export type ChatMessage = {
   offerStatus?: "Pending" | "Accepted" | "Countered";
 };
 
+export type MyChatThread = {
+  id: number;
+  listing: Listing;
+  counterparty: string;
+  lastMessage: string;
+  updated: string;
+};
+
 export type BuyerDeal = {
   id: number;
   listing: Listing;
@@ -1205,6 +1213,67 @@ export async function flagReview(ratingId: number, reason: string) {
 export async function markNotificationsRead(ids: number[]) {
   const { error } = await supabase.rpc("mark_notifications_read", { p_ids: ids });
   if (error) throw new Error(rpcMessage(error));
+}
+
+export async function listMyChatThreads(): Promise<MyChatThread[]> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return [];
+  const myId = auth.user.id;
+  const { data: threads, error } = await supabase
+    .from("chat_threads")
+    .select("id, listing_id, buyer_id, seller_id, created_at")
+    .or(`buyer_id.eq.${myId},seller_id.eq.${myId}`);
+  throwIf(error);
+  if (!threads?.length) return [];
+
+  const listingIds = [...new Set(threads.map((thread) => thread.listing_id as number))];
+  const [{ data: profiles }, { data: listingRows }] = await Promise.all([
+    supabase.from("profiles").select("*"),
+    supabase.from("listings").select("*").in("id", listingIds),
+  ]);
+  const profileRows = (profiles ?? []) as ProfileRow[];
+  const listingById = new Map(
+    ((listingRows ?? []) as ListingRow[]).map((row) => [row.id, mapListing(row, profileRows, [])]),
+  );
+
+  const { data: messages } = await supabase
+    .from("chat_messages")
+    .select("thread_id, body, created_at")
+    .in(
+      "thread_id",
+      threads.map((thread) => thread.id),
+    )
+    .order("created_at", { ascending: false });
+
+  const lastByThread = new Map<number, { body: string; created_at: string }>();
+  for (const message of messages ?? []) {
+    const threadId = message.thread_id as number;
+    if (!lastByThread.has(threadId)) {
+      lastByThread.set(threadId, {
+        body: (message.body as string) ?? "",
+        created_at: message.created_at as string,
+      });
+    }
+  }
+
+  return threads
+    .map((thread) => {
+      const listing = listingById.get(thread.listing_id as number);
+      if (!listing) return null;
+      const otherId = thread.buyer_id === myId ? thread.seller_id : thread.buyer_id;
+      const last = lastByThread.get(thread.id as number);
+      return {
+        id: thread.id as number,
+        listing,
+        counterparty: usernameOf(profileRows, otherId as string),
+        lastMessage: last?.body ?? "",
+        updated: formatRelative(last?.created_at ?? (thread.created_at as string)),
+        sortKey: last?.created_at ?? (thread.created_at as string),
+      };
+    })
+    .filter((thread): thread is NonNullable<typeof thread> => Boolean(thread))
+    .sort((a, b) => new Date(b.sortKey).getTime() - new Date(a.sortKey).getTime())
+    .map(({ sortKey: _sortKey, ...thread }) => thread);
 }
 
 export async function listListingChatPeople(listingId: number) {

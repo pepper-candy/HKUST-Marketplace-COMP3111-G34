@@ -1887,8 +1887,25 @@ function MyDealsPage({
   onRefresh: () => Promise<unknown>;
 }) {
   const [ratingDeal, setRatingDeal] = useState<BuyerDeal | null>(null);
+  const [tab, setTab] = useState<"Active" | "Chats" | "Completed">("Active");
+  const [chats, setChats] = useState<api.MyChatThread[]>([]);
   const activeDeals = deals.filter((deal) => !deal.completed);
   const completedDeals = deals.filter((deal) => deal.completed);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .listMyChatThreads()
+      .then((threads) => {
+        if (!cancelled) setChats(threads);
+      })
+      .catch(() => {
+        if (!cancelled) setChats([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [deals]);
 
   const markReturned = (deal: BuyerDeal) => {
     void api
@@ -1972,51 +1989,162 @@ function MyDealsPage({
             <strong>{activeDeals.length}</strong> Active
           </span>
           <span>
+            <strong>{chats.length}</strong> Chats
+          </span>
+          <span>
             <strong>{completedDeals.length}</strong> Completed
           </span>
         </div>
       </div>
 
-      <div className="return-note">
-        <span className="activity-icon tone-1">
-          <Icon name="clock" size={18} />
-        </span>
-        <div>
-          <strong>Borrowed items return automatically</strong>
-          <p>
-            When a lending period expires, the deal status updates to Returned. Use Return early if
-            you hand the item back before the due date.
-          </p>
+      <div className="request-toolbar">
+        <div className="request-tabs">
+          {(["Active", "Chats", "Completed"] as const).map((option) => (
+            <button
+              key={option}
+              className={tab === option ? "active" : ""}
+              onClick={() => setTab(option)}
+            >
+              {option}
+              <span>
+                {option === "Active"
+                  ? activeDeals.length
+                  : option === "Chats"
+                    ? chats.length
+                    : completedDeals.length}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="deals-section-heading">
-        <div>
-          <h2>Active deals</h2>
-          <p>Items requiring action or currently in progress</p>
-        </div>
-        <span>{activeDeals.length}</span>
-      </div>
-      <div className="deals-list">
-        {activeDeals.length ? (
-          activeDeals.map(dealCard)
-        ) : (
-          <div className="empty-state compact">
-            <Icon name="bag" size={25} />
-            <h3>No active deals</h3>
-            <p>Your current offers, loans, and claims will appear here.</p>
+      {tab === "Active" && (
+        <>
+          <div className="return-note">
+            <span className="activity-icon tone-1">
+              <Icon name="clock" size={18} />
+            </span>
+            <div>
+              <strong>Borrowed items return automatically</strong>
+              <p>
+                When a lending period expires, the deal status updates to Returned. Use Return early
+                if you hand the item back before the due date.
+              </p>
+            </div>
           </div>
-        )}
-      </div>
+          <div className="deals-section-heading">
+            <div>
+              <h2>Active deals</h2>
+              <p>Items requiring action or currently in progress</p>
+            </div>
+            <span>{activeDeals.length}</span>
+          </div>
+          <div className="deals-list">
+            {activeDeals.length ? (
+              activeDeals.map(dealCard)
+            ) : (
+              <div className="empty-state compact">
+                <Icon name="bag" size={25} />
+                <h3>No active deals</h3>
+                <p>Your current offers, loans, and claims will appear here. Open conversations are in Chats.</p>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
-      <div className="deals-section-heading completed-heading">
-        <div>
-          <h2>Recently completed</h2>
-          <p>Your latest completed or returned deals</p>
-        </div>
-        <span>{completedDeals.length}</span>
-      </div>
-      <div className="deals-list">{completedDeals.map(dealCard)}</div>
+      {tab === "Chats" && (
+        <>
+          <div className="deals-section-heading">
+            <div>
+              <h2>Chats</h2>
+              <p>Conversations you started, including listings with no offer yet</p>
+            </div>
+            <span>{chats.length}</span>
+          </div>
+          <div className="deals-list">
+            {chats.length ? (
+              chats.map((thread) => (
+                <article className="deal-card" key={thread.id}>
+                  <button className="deal-image" onClick={() => onOpenListing(thread.listing)}>
+                    <img src={thread.listing.image} alt={thread.listing.title} />
+                    <span
+                      className={`type-badge ${thread.listing.type.replace(" ", "-").toLowerCase()}`}
+                    >
+                      {thread.listing.type}
+                    </span>
+                  </button>
+                  <div className="deal-main">
+                    <div className="deal-title-row">
+                      <div>
+                        <span className="deal-kind">Chat · @{thread.counterparty}</span>
+                        <h3>{thread.listing.title}</h3>
+                      </div>
+                      <span className="deal-status">Chat</span>
+                    </div>
+                    <p className="deal-detail">
+                      {thread.lastMessage || "Conversation started"}
+                    </p>
+                    <div className="deal-meta">
+                      <span>
+                        <Icon name="clock" size={14} />
+                        {thread.updated}
+                      </span>
+                      <span>
+                        <Icon name="pin" size={14} />
+                        {thread.listing.location}
+                      </span>
+                    </div>
+                    <div className="deal-actions">
+                      <button
+                        className="deal-text-action"
+                        onClick={() => onOpenListing(thread.listing)}
+                      >
+                        View listing
+                      </button>
+                      <button
+                        className="deal-text-action"
+                        onClick={() => onChatListing(thread.listing, thread.counterparty)}
+                      >
+                        <Icon name="message" size={15} /> Open chat
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="empty-state compact">
+                <Icon name="message" size={25} />
+                <h3>No chats yet</h3>
+                <p>When you message a seller, the conversation will appear here.</p>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {tab === "Completed" && (
+        <>
+          <div className="deals-section-heading">
+            <div>
+              <h2>Recently completed</h2>
+              <p>Your latest completed or returned deals</p>
+            </div>
+            <span>{completedDeals.length}</span>
+          </div>
+          <div className="deals-list">
+            {completedDeals.length ? (
+              completedDeals.map(dealCard)
+            ) : (
+              <div className="empty-state compact">
+                <Icon name="check" size={25} />
+                <h3>No completed deals</h3>
+                <p>Finished purchases, loans, and claims will appear here.</p>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {ratingDeal && (
         <RatingDialog
