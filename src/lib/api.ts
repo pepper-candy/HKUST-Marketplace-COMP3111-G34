@@ -817,7 +817,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       const listing = listingUiById.get(offer.listing_id);
       if (!listingRow || !listing) return null;
       const status = buyerDealStatus(offer, listingRow);
-      const completed = ["completed", "returned", "declined", "cancelled"].includes(offer.status);
+      const completed = ["completed", "returned"].includes(offer.status);
       return {
         id: offer.id,
         listing,
