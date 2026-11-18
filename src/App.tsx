@@ -8,13 +8,16 @@ type MarketplaceUser = api.MarketplaceUser;
 type AdminProfile = api.AdminProfile;
 type Listing = api.Listing;
 
+type ChatOfferStatus = api.ChatOfferStatus;
+
 type ChatMessage = {
   id: number;
   sender: "buyer" | "seller";
   body: string;
   time: string;
   kind?: "message" | "offer";
-  offerStatus?: "Pending" | "Accepted" | "Countered";
+  offerId?: number;
+  offerStatus?: ChatOfferStatus;
 };
 
 type ListingOfferItem = {
@@ -25,6 +28,20 @@ type ListingOfferItem = {
   status: string;
 };
 
+function unifyOfferCopy(body: string, listingType: Listing["type"]) {
+  let text = body
+    .replace(/^Proposed price:\s*/i, "Offer: ")
+    .replace(/^Formal offer:\s*/i, "Offer: ")
+    .replace(/^Seller counter:\s*/i, "Offer: ");
+  if (/^Formal counter:\s*/i.test(text)) {
+    text =
+      listingType === "Lend"
+        ? text.replace(/^Formal counter:\s*/i, "Borrow request: ")
+        : text.replace(/^Formal counter:\s*/i, "Offer: ");
+  }
+  return text;
+}
+
 function chatOffersForListing(
   listing: Listing,
   messages: ChatMessage[],
@@ -33,15 +50,45 @@ function chatOffersForListing(
   return messages
     .filter((message) => message.kind === "offer")
     .map((message) => ({
-      id: `chat-${message.id}`,
+      id: message.offerId ?? `chat-${message.id}`,
       buyer: buyerName || (message.sender === "buyer" ? "buyer" : listing.seller),
       type: /borrow/i.test(message.body) ? "Borrow" : "Offer",
-      detail: message.body
-        .replace(/^Formal offer:\s*/i, "Proposed price: ")
-        .replace(/^Formal counter:\s*/i, "Counter: ")
-        .replace(/^Seller counter:\s*/i, "Counter: "),
+      detail: unifyOfferCopy(message.body, listing.type),
       status: message.offerStatus ?? "Pending",
     }));
+}
+
+function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
+  if (message.kind !== "offer") return false;
+  const group = message.offerId
+    ? messages.filter((item) => item.kind === "offer" && item.offerId === message.offerId)
+    : messages.filter((item) => item.kind === "offer");
+  return group.at(-1)?.id !== message.id;
+}
+
+function syncChatOfferStatuses(
+  current: Record<number, ChatMessage[]>,
+  requests: api.SellerRequest[],
+  deals: api.BuyerDeal[],
+) {
+  const statusById = new Map<number, ChatOfferStatus>();
+  for (const request of requests) statusById.set(request.id, request.status);
+  for (const deal of deals) {
+    const status = api.chatOfferStatusUi(deal.status);
+    if (status) statusById.set(deal.id, status);
+  }
+  let changed = false;
+  const next: Record<number, ChatMessage[]> = {};
+  for (const [key, list] of Object.entries(current)) {
+    next[Number(key)] = list.map((message) => {
+      if (message.offerId == null) return message;
+      const status = statusById.get(message.offerId);
+      if (!status || status === message.offerStatus) return message;
+      changed = true;
+      return { ...message, offerStatus: status };
+    });
+  }
+  return changed ? next : current;
 }
 
 function latestOffersByBuyer(offers: ListingOfferItem[]) {
@@ -53,7 +100,7 @@ function latestOffersByBuyer(offers: ListingOfferItem[]) {
 }
 
 function mergeListingOffers(primary: ListingOfferItem[], extra: ListingOfferItem[]) {
-  return latestOffersByBuyer([...primary.slice().reverse(), ...extra]);
+  return latestOffersByBuyer([...extra, ...primary]);
 }
 
 function withListingChatPeople(
@@ -541,10 +588,17 @@ function DetailModal({
         start: startDate,
         end: endDate,
       })
-      .then(() => {
+      .then((offerId) => {
+        const detail =
+          listing.type === "Sell"
+            ? api.offerDetailLabel({ type: "Sell", price: Number(offerPrice) })
+            : api.offerDetailLabel({ type: "Lend", start: startDate, end: endDate });
+        if (typeof offerId === "number") {
+          void api.postOfferChatIfBuyerThread(listing.id, detail, offerId);
+        }
         const message =
           listing.type === "Sell"
-            ? `Offer of HK$${Number(offerPrice).toLocaleString()} sent to @${listing.seller}`
+            ? `${detail} sent to @${listing.seller}`
             : `Borrow request sent to @${listing.seller}`;
         onAction(message);
       })
@@ -1292,11 +1346,14 @@ function ChatScreen({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [offerError, setOfferError] = useState("");
+  const [confirming, setConfirming] = useState<{
+    offerId: number;
+    action: "Accept" | "Decline";
+  } | null>(null);
+  const [acting, setActing] = useState(false);
   const currentSender = role === "Seller" ? "seller" : "buyer";
-  const latestFormalId = [...messages].filter((message) => message.kind === "offer").at(-1)?.id;
-  const sendingCounter =
-    role === "Seller" ||
-    [...messages].filter((message) => message.kind === "offer").at(-1)?.sender === "seller";
+  const sendingCounter = role === "Seller";
+  const canFormalOffer = listing.type !== "Give Away" && (role === "Buyer" || Boolean(activeOfferId));
 
   const visibleMessages = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -1318,14 +1375,16 @@ function ChatScreen({
     };
     onMessagesChange((current) => [...current, temp]);
     void api
-      .sendChatMessage(threadId, message.body, kind, role)
+      .sendChatMessage(threadId, message.body, kind, role, message.offerId)
       .then((saved) => {
         onMessagesChange((current) => {
           if (current.some((item) => item.id === saved.id)) {
             return current.filter((item) => item.id !== tempId);
           }
           return current.map((item) =>
-            item.id === tempId ? { ...saved, offerStatus: item.offerStatus } : item,
+            item.id === tempId
+              ? { ...saved, offerStatus: saved.offerStatus ?? item.offerStatus, offerId: saved.offerId ?? item.offerId }
+              : item,
           );
         });
       })
@@ -1345,12 +1404,9 @@ function ChatScreen({
 
   const sendFormalOffer = (event: React.FormEvent) => {
     event.preventDefault();
+    if (acting) return;
     setOfferError("");
-    const formatDate = (date: string) =>
-      new Intl.DateTimeFormat("en-HK", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(new Date(date));
+    if (threadId == null) return;
 
     let body = "";
     if (listing.type === "Sell") {
@@ -1358,7 +1414,7 @@ function ChatScreen({
         setOfferError("Enter a valid offer amount.");
         return;
       }
-      body = `${sendingCounter ? "Formal counter" : "Formal offer"}: HK$${Number(offerPrice).toLocaleString()}`;
+      body = api.offerDetailLabel({ type: "Sell", price: Number(offerPrice) });
     } else if (listing.type === "Lend") {
       if (!startDate || !endDate) {
         setOfferError("Choose both a start and end time.");
@@ -1368,60 +1424,85 @@ function ChatScreen({
         setOfferError("End time must be at least 5 seconds after the start time.");
         return;
       }
-      body = sendingCounter
-        ? `Formal counter: ${formatDate(startDate)} to ${formatDate(endDate)}`
-        : `Borrow request: ${formatDate(startDate)} to ${formatDate(endDate)}`;
+      body = api.offerDetailLabel({ type: "Lend", start: startDate, end: endDate });
     } else {
       return;
     }
 
-    sendOptimistic(
-      {
-        sender: currentSender,
-        body,
-        kind: "offer",
-        offerStatus: "Pending",
-      },
-      "offer",
-    );
+    const price = listing.type === "Sell" ? Number(offerPrice) : undefined;
+    const start = startDate;
+    const end = endDate;
+    setActing(true);
 
-    if (threadId != null) {
-      if (role === "Seller" && activeOfferId) {
-        void api
-          .respondToOffer(activeOfferId, "counter", {
-            price: listing.type === "Sell" ? Number(offerPrice) : undefined,
-            start: startDate,
-            end: endDate,
-          })
-          .then(() => onRefresh())
-          .catch((err) =>
-            setOfferError(err instanceof Error ? err.message : "Could not send counter."),
-          );
-      } else if (role === "Buyer") {
-        void api
-          .submitListingAction(listing, {
-            price: listing.type === "Sell" ? Number(offerPrice) : undefined,
-            start: startDate,
-            end: endDate,
-          })
-          .then(() => onRefresh())
-          .catch((err) =>
-            setOfferError(err instanceof Error ? err.message : "Could not send offer."),
-          );
+    const afterOffer = (offerId: number, status: ChatOfferStatus) => {
+      sendOptimistic(
+        {
+          sender: currentSender,
+          body,
+          kind: "offer",
+          offerId,
+          offerStatus: status,
+        },
+        "offer",
+      );
+      setOfferOpen(false);
+      setOfferPrice("");
+      setStartDate("");
+      setEndDate("");
+      onAction(sendingCounter ? "Counter sent" : listing.type === "Sell" ? "Offer sent" : "Borrow request sent");
+      void onRefresh();
+    };
+
+    if (role === "Seller") {
+      if (!activeOfferId) {
+        setActing(false);
+        setOfferError("No pending offer to counter.");
+        return;
       }
+      void api
+        .respondToOffer(activeOfferId, "counter", { price, start, end })
+        .then(() => afterOffer(activeOfferId, "Countered"))
+        .catch((err) =>
+          setOfferError(err instanceof Error ? err.message : "Could not send counter."),
+        )
+        .finally(() => setActing(false));
+      return;
     }
 
-    setOfferOpen(false);
-    setOfferPrice("");
-    setStartDate("");
-    setEndDate("");
-    onAction(
-      sendingCounter
-        ? "Formal counter sent"
-        : listing.type === "Sell"
-          ? "Formal offer sent"
-          : "Borrow request sent",
-    );
+    void api
+      .submitListingAction(listing, { price, start, end })
+      .then((offerId) => {
+        if (offerId == null) throw new Error("Could not send offer.");
+        afterOffer(offerId, "Pending");
+      })
+      .catch((err) => setOfferError(err instanceof Error ? err.message : "Could not send offer."))
+      .finally(() => setActing(false));
+  };
+
+  const confirmChatOffer = () => {
+    if (!confirming) return;
+    const { offerId, action } = confirming;
+    setActing(true);
+    void api
+      .respondToOffer(offerId, action === "Accept" ? "accept" : "decline")
+      .then(() => onRefresh())
+      .then(() => {
+        onMessagesChange((current) =>
+          current.map((message) =>
+            message.offerId === offerId
+              ? { ...message, offerStatus: action === "Accept" ? "Accepted" : "Declined" }
+              : message,
+          ),
+        );
+        onAction(
+          action === "Accept"
+            ? `Offer accepted. @${counterparty} was notified.`
+            : `Offer declined. @${counterparty} was notified.`,
+        );
+        setConfirming(null);
+      })
+      .catch((err) => onAction(err instanceof Error ? err.message : "Could not update offer."))
+      .finally(() => setActing(false));
   };
 
   return (
@@ -1492,7 +1573,17 @@ function ChatScreen({
             </div>
           )}
           {visibleMessages.length ? (
-            visibleMessages.map((message) => (
+            visibleMessages.map((message) => {
+              const stale = isStaleOfferBubble(message, messages);
+              const offerId = message.offerId ?? (stale ? undefined : (activeOfferId ?? undefined));
+              const offerStatus = message.offerStatus ?? "Pending";
+              const sellerCanRespond =
+                role === "Seller" &&
+                message.kind === "offer" &&
+                !stale &&
+                offerId != null &&
+                (offerStatus === "Pending" || offerStatus === "Countered");
+              return (
               <div
                 className={`message-row ${message.sender === currentSender ? "mine" : "theirs"}`}
                 key={message.id}
@@ -1505,26 +1596,44 @@ function ChatScreen({
                 <div>
                   <div
                     className={`message-bubble ${message.kind === "offer" ? "formal" : ""} ${
-                      message.kind === "offer" && message.id !== latestFormalId ? "stale" : ""
+                      message.kind === "offer" && stale ? "stale" : ""
                     }`}
                   >
                     {message.kind === "offer" && (
                       <span className="formal-label">
-                        <Icon name="bag" size={14} /> FORMAL{" "}
-                        {/counter/i.test(message.body)
-                          ? "COUNTER"
-                          : listing.type === "Sell"
-                            ? "OFFER"
-                            : "BORROW REQUEST"}
+                        <Icon name="bag" size={14} />{" "}
+                        {listing.type === "Sell" ? "OFFER" : "BORROW REQUEST"}
                       </span>
                     )}
-                    <p>{message.body}</p>
+                    <p>
+                      {message.kind === "offer"
+                        ? unifyOfferCopy(message.body, listing.type)
+                        : message.body}
+                    </p>
                     {message.kind === "offer" && (
                       <span className="offer-status">
-                        {message.id !== latestFormalId
-                          ? "No longer valid"
-                          : (message.offerStatus ?? "Current")}
+                        {stale ? "No longer valid" : offerStatus}
                       </span>
+                    )}
+                    {sellerCanRespond && offerId != null && (
+                      <div className="chat-offer-buttons">
+                        <button
+                          type="button"
+                          className="request-decline"
+                          disabled={acting}
+                          onClick={() => setConfirming({ offerId, action: "Decline" })}
+                        >
+                          Decline
+                        </button>
+                        <button
+                          type="button"
+                          className="primary-action"
+                          disabled={acting}
+                          onClick={() => setConfirming({ offerId, action: "Accept" })}
+                        >
+                          Accept
+                        </button>
+                      </div>
                     )}
                   </div>
                   <time>
@@ -1532,7 +1641,8 @@ function ChatScreen({
                   </time>
                 </div>
               </div>
-            ))
+            );
+            })
           ) : (
             <div className="chat-empty">
               <Icon name="search" size={24} />
@@ -1542,7 +1652,7 @@ function ChatScreen({
           )}
         </div>
 
-        {offerOpen && listing.type !== "Give Away" && (
+        {offerOpen && canFormalOffer && (
           <form className="chat-offer-panel" onSubmit={sendFormalOffer}>
             <div className="chat-offer-heading">
               <div>
@@ -1610,15 +1720,19 @@ function ChatScreen({
               >
                 Cancel
               </button>
-              <button className="primary-action">
-                Send formal {sendingCounter ? "counter" : listing.type === "Sell" ? "offer" : "request"}
+              <button className="primary-action" disabled={acting}>
+                {sendingCounter
+                  ? "Send counter"
+                  : listing.type === "Sell"
+                    ? "Send offer"
+                    : "Send request"}
               </button>
             </div>
           </form>
         )}
 
         <div className="chat-composer">
-          {listing.type !== "Give Away" && (
+          {canFormalOffer && (
             <button className="offer-trigger" onClick={() => setOfferOpen(!offerOpen)}>
               <Icon name="bag" size={17} />
               {sendingCounter ? "Send counter" : "Make Offer"}
@@ -1637,6 +1751,45 @@ function ChatScreen({
           </form>
         </div>
       </div>
+
+      {confirming && (
+        <div className="modal-backdrop" onMouseDown={() => !acting && setConfirming(null)}>
+          <div
+            className="confirm-dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <span className={`confirm-icon ${confirming.action.toLowerCase()}`}>
+              <Icon name={confirming.action === "Accept" ? "check" : "x"} size={23} />
+            </span>
+            <h2>
+              {confirming.action} this {listing.type === "Lend" ? "borrow request" : "offer"}?
+            </h2>
+            <p>
+              {confirming.action === "Accept"
+                ? `The listing status will update and @${counterparty} will be notified.`
+                : `The request will close and @${counterparty} will be notified.`}
+            </p>
+            <div className="confirm-actions">
+              <button
+                className="secondary-action"
+                disabled={acting}
+                onClick={() => setConfirming(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className={confirming.action === "Accept" ? "primary-action" : "destructive-action"}
+                disabled={acting}
+                onClick={confirmChatOffer}
+              >
+                {confirming.action} request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -2364,7 +2517,7 @@ function SellerRequestsPage({
   buyerDealState: BuyerDeal[];
   onBuyerDealsChange: (deals: BuyerDeal[]) => void;
   onChatListing: (listing: Listing, participant?: string) => void;
-  onRecordFormalChat: (listing: Listing, buyer: string, body: string) => void;
+  onRecordFormalChat: (listing: Listing, buyer: string, body: string, offerId?: number) => void;
   onAction: (message: string) => void;
   onRefresh: () => Promise<unknown>;
 }) {
@@ -2379,6 +2532,7 @@ function SellerRequestsPage({
   const [counterEnd, setCounterEnd] = useState("");
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const visibleRequests =
     filter === "All" ? requests : requests.filter((request) => request.status === filter);
@@ -2410,45 +2564,49 @@ function SellerRequestsPage({
   };
 
   const confirmAction = () => {
-    if (!confirming) return;
+    if (!confirming || busy) return;
     const { request, action } = confirming;
     const acceptedStatus =
       request.type === "Offer" ? "Reserved" : request.type === "Borrow" ? "Lent" : "Given";
     const nextStatus = action === "Accept" ? "Accepted" : "Declined";
+    setBusy(true);
     void api
       .respondToOffer(request.id, action === "Accept" ? "accept" : "decline")
-      .then(() => onRefresh())
-      .catch((err) => onAction(err instanceof Error ? err.message : "Could not update request."));
-    onRequestsChange(
-      requests.map((item) =>
-        item.id === request.id
-          ? {
-              ...item,
-              status: nextStatus,
-              listingStatus: action === "Accept" ? acceptedStatus : item.listingStatus,
-            }
-          : item,
-      ),
-    );
-    updateBuyerDeal(
-      request,
-      nextStatus,
-      action === "Accept"
-        ? `${request.type} accepted by @${request.listing.seller} · Listing ${acceptedStatus}`
-        : `${request.type} declined by @${request.listing.seller}`,
-    );
-    setNotice(
-      action === "Accept"
-        ? `Accepted. ${request.listing.title} is now ${acceptedStatus}. @${request.buyer} was notified.`
-        : `Request declined. @${request.buyer} was notified.`,
-    );
-    onAction(`Buyer @${request.buyer} notified`);
-    setConfirming(null);
+      .then(() => {
+        onRequestsChange(
+          requests.map((item) =>
+            item.id === request.id
+              ? {
+                  ...item,
+                  status: nextStatus,
+                  listingStatus: action === "Accept" ? acceptedStatus : item.listingStatus,
+                }
+              : item,
+          ),
+        );
+        updateBuyerDeal(
+          request,
+          nextStatus,
+          action === "Accept"
+            ? `${request.detail} · Accepted · Listing ${acceptedStatus}`
+            : `${request.detail} · Declined`,
+        );
+        setNotice(
+          action === "Accept"
+            ? `Accepted. ${request.listing.title} is now ${acceptedStatus}. @${request.buyer} was notified.`
+            : `Request declined. @${request.buyer} was notified.`,
+        );
+        onAction(`Buyer @${request.buyer} notified`);
+        setConfirming(null);
+        return onRefresh();
+      })
+      .catch((err) => onAction(err instanceof Error ? err.message : "Could not update request."))
+      .finally(() => setBusy(false));
   };
 
   const submitCounter = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!countering) return;
+    if (!countering || busy) return;
     setFormError("");
     let detail = "";
     if (countering.type === "Offer") {
@@ -2456,39 +2614,39 @@ function SellerRequestsPage({
         setFormError("Enter a valid counter price.");
         return;
       }
-      detail = `Seller counter: HK$${Number(counterPrice).toLocaleString()}`;
+      detail = api.offerDetailLabel({ type: "Sell", price: Number(counterPrice) });
     } else {
       if (!counterStart || !counterEnd || new Date(counterEnd) <= new Date(counterStart)) {
         setFormError("Choose a valid start and end period.");
         return;
       }
-      detail = `Seller proposed new lending dates: ${counterStart.replace("T", " ")} → ${counterEnd.replace("T", " ")}`;
+      detail = api.offerDetailLabel({ type: "Lend", start: counterStart, end: counterEnd });
     }
-    const chatBody =
-      countering.type === "Offer"
-        ? `Formal counter: HK$${Number(counterPrice).toLocaleString()}`
-        : `Formal counter: ${counterStart.replace("T", " ")} → ${counterEnd.replace("T", " ")}`;
+    setBusy(true);
     void api
       .respondToOffer(countering.id, "counter", {
         price: countering.type === "Offer" ? Number(counterPrice) : undefined,
         start: counterStart,
         end: counterEnd,
       })
-      .then(() => onRefresh())
-      .catch((err) => onAction(err instanceof Error ? err.message : "Could not send counter."));
-    onRecordFormalChat(countering.listing, countering.buyer, chatBody);
-    onRequestsChange(
-      requests.map((request) =>
-        request.id === countering.id ? { ...request, status: "Countered", detail } : request,
-      ),
-    );
-    updateBuyerDeal(countering, "Countered", detail);
-    setNotice(`Counter sent to @${countering.buyer}. They were notified in My Deals and chat.`);
-    onAction(`Counter sent to @${countering.buyer}`);
-    setCountering(null);
-    setCounterPrice("");
-    setCounterStart("");
-    setCounterEnd("");
+      .then(() => {
+        onRecordFormalChat(countering.listing, countering.buyer, detail, countering.id);
+        onRequestsChange(
+          requests.map((request) =>
+            request.id === countering.id ? { ...request, status: "Countered", detail } : request,
+          ),
+        );
+        updateBuyerDeal(countering, "Countered", detail);
+        setNotice(`Counter sent to @${countering.buyer}. They were notified in My Deals and chat.`);
+        onAction(`Counter sent to @${countering.buyer}`);
+        setCountering(null);
+        setCounterPrice("");
+        setCounterStart("");
+        setCounterEnd("");
+        return onRefresh();
+      })
+      .catch((err) => onAction(err instanceof Error ? err.message : "Could not send counter."))
+      .finally(() => setBusy(false));
   };
 
   const pendingCount = requests.filter((request) => request.status === "Pending").length;
@@ -2567,12 +2725,12 @@ function SellerRequestsPage({
                 <div className="request-detail-box">
                   <span>
                     {request.type === "Offer"
-                      ? "PROPOSED PRICE"
+                      ? "OFFER"
                       : request.type === "Borrow"
-                        ? "PROPOSED LENDING PERIOD"
+                        ? "BORROW REQUEST"
                         : "CLAIM DETAILS"}
                   </span>
-                  <strong>{request.detail}</strong>
+                  <strong>{unifyOfferCopy(request.detail, request.listing.type)}</strong>
                 </div>
 
                 {countering?.id === request.id && (
@@ -2624,7 +2782,9 @@ function SellerRequestsPage({
                       </div>
                     )}
                     {formError && <p className="form-error">{formError}</p>}
-                    <button className="primary-action counter-submit">Send counter</button>
+                    <button className="primary-action counter-submit" disabled={busy}>
+                      Send counter
+                    </button>
                   </form>
                 )}
 
@@ -2636,10 +2796,11 @@ function SellerRequestsPage({
                     <Icon name="message" size={16} /> Open chat
                   </button>
                   <span />
-                  {request.status === "Pending" && (
+                  {(request.status === "Pending" || request.status === "Countered") && (
                     <>
                       <button
                         className="request-decline"
+                        disabled={busy}
                         onClick={() => setConfirming({ request, action: "Decline" })}
                       >
                         Decline
@@ -2647,6 +2808,7 @@ function SellerRequestsPage({
                       {request.type !== "Claim" && (
                         <button
                           className="secondary-action"
+                          disabled={busy}
                           onClick={() => {
                             setCountering(request);
                             setFormError("");
@@ -2657,6 +2819,7 @@ function SellerRequestsPage({
                       )}
                       <button
                         className="primary-action"
+                        disabled={busy}
                         onClick={() => setConfirming({ request, action: "Accept" })}
                       >
                         Accept
@@ -2696,11 +2859,16 @@ function SellerRequestsPage({
                 : `The request will close and @${confirming.request.buyer} will be notified.`}
             </p>
             <div className="confirm-actions">
-              <button className="secondary-action" onClick={() => setConfirming(null)}>
+              <button
+                className="secondary-action"
+                disabled={busy}
+                onClick={() => setConfirming(null)}
+              >
                 Cancel
               </button>
               <button
                 className={confirming.action === "Accept" ? "primary-action" : "destructive-action"}
+                disabled={busy}
                 onClick={confirmAction}
               >
                 {confirming.action} request
@@ -3104,8 +3272,19 @@ function listingFromNotification(message: string, listings: Listing[]) {
   return listings.find((listing) => message.includes(listing.title));
 }
 
-function usernameFromNotification(item: NotificationItem) {
-  return `${item.title} ${item.message}`.match(/@([A-Za-z0-9._-]+)/)?.[1];
+function usernameFromNotification(item: NotificationItem, knownUsernames: string[] = []) {
+  const fromTitle = item.title.match(/@(.+)$/)?.[1]?.trim();
+  const names = [...new Set(knownUsernames.filter(Boolean))].sort((a, b) => b.length - a.length);
+  if (fromTitle) {
+    const known = names.find((name) => name.toLowerCase() === fromTitle.toLowerCase());
+    return known ?? fromTitle;
+  }
+  const text = `${item.title} ${item.message}`;
+  for (const name of names) {
+    if (text.toLowerCase().includes(`@${name.toLowerCase()}`)) return name;
+  }
+  return text.match(/@([A-Za-z0-9._ -]+?)(?=\s+(?:submitted|offered|asked|claimed|left|is|countered)\b|[“"]|$)/i)?.[1]?.trim()
+    ?? text.match(/@([A-Za-z0-9._-]+)/)?.[1];
 }
 
 function chatTargetFromNotification(
@@ -3115,7 +3294,12 @@ function chatTargetFromNotification(
   sellerRequests: SellerRequest[],
   buyerDeals: BuyerDeal[],
 ) {
-  const username = usernameFromNotification(item);
+  const knownUsernames = [
+    ...sellerRequests.map((request) => request.buyer),
+    ...buyerDeals.map((deal) => deal.listing.seller),
+    ...listings.map((listing) => listing.seller),
+  ];
+  const username = usernameFromNotification(item, knownUsernames);
   const listing = listingFromNotification(`${item.title} ${item.message}`, listings);
 
   if (role === "Seller") {
@@ -3311,7 +3495,11 @@ function NotificationBoard({
                                     onChatListing(target.listing, target.participant);
                                     return;
                                   }
-                                  const username = usernameFromNotification(item);
+                                  const username = usernameFromNotification(item, [
+                                    ...sellerRequests.map((request) => request.buyer),
+                                    ...buyerDeals.map((deal) => deal.listing.seller),
+                                    ...listings.map((listing) => listing.seller),
+                                  ]);
                                   if (!username) return;
                                   void api
                                     .findChatWithUsername(username)
@@ -5747,7 +5935,7 @@ function SupportingPage({
   onRefresh: () => Promise<unknown>;
   onOpenListing: (listing: Listing) => void;
   onChatListing: (listing: Listing, participant?: string) => void;
-  onRecordFormalChat: (listing: Listing, buyer: string, body: string) => void;
+  onRecordFormalChat: (listing: Listing, buyer: string, body: string, offerId?: number) => void;
   onNavigate: (page: string) => void;
   buyerDealState: BuyerDeal[];
   onBuyerDealsChange: (deals: BuyerDeal[]) => void;
@@ -6645,14 +6833,24 @@ export default function App() {
     };
   }, [selected?.id]);
 
-  const recordFormalChat = async (listing: Listing, buyerUsername: string, body: string) => {
+  useEffect(() => {
+    setChatMessages((current) => syncChatOfferStatuses(current, sellerRequests, buyerDealState));
+  }, [sellerRequests, buyerDealState]);
+
+  const recordFormalChat = async (
+    listing: Listing,
+    buyerUsername: string,
+    body: string,
+    offerId?: number,
+  ) => {
     try {
       const buyer = users.find((user) => user.username === buyerUsername);
-      const threadId = await api.openChat(
-        listing.id,
-        role === "Buyer" ? currentUserId : buyer?.id,
-      );
-      await api.sendChatMessage(threadId, body, "offer", role);
+      const buyerId =
+        role === "Buyer"
+          ? currentUserId
+          : (buyer?.id ?? (buyerUsername ? await api.profileIdByUsername(buyerUsername) : null));
+      const threadId = await api.openChat(listing.id, buyerId ?? undefined);
+      await api.sendChatMessage(threadId, body, "offer", role, offerId);
       const loaded = await api.loadChatMessages(threadId, role);
       setChatThreadId(threadId);
       setChatMessages((current) => ({ ...current, [listing.id]: loaded }));
