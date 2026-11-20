@@ -253,8 +253,10 @@ DECLARE
   v_listing public.listings%ROWTYPE;
   v_next_listing_status text;
   v_detail text;
-  v_seller text;
+  v_actor text;
   v_price_text text;
+  v_is_seller boolean;
+  v_is_buyer boolean;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
@@ -262,38 +264,23 @@ BEGIN
   IF p_action NOT IN ('accept', 'decline', 'counter') THEN
     RAISE EXCEPTION 'Invalid action';
   END IF;
-
   SELECT * INTO v_offer FROM public.offers WHERE id = p_offer_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Offer not found';
   END IF;
   SELECT * INTO v_listing FROM public.listings WHERE id = v_offer.listing_id FOR UPDATE;
 
+  v_is_seller := v_listing.seller_id = auth.uid();
+  v_is_buyer := v_offer.buyer_id = auth.uid();
   PERFORM set_config('app.listing_rpc', 'on', true);
 
-  IF v_listing.seller_id <> auth.uid() AND NOT public.is_admin() THEN
-    RAISE EXCEPTION 'Only the seller can respond to this request';
-  END IF;
-  IF v_offer.status NOT IN ('pending', 'countered') THEN
-    RAISE EXCEPTION 'This request is no longer pending';
-  END IF;
-
-  SELECT username INTO v_seller FROM public.profiles WHERE id = v_listing.seller_id;
-
-  IF p_action = 'decline' THEN
-    UPDATE public.offers SET status = 'declined' WHERE id = p_offer_id;
-    IF v_offer.kind = 'claim' AND v_listing.status = 'reserved' THEN
-      UPDATE public.listings SET status = 'live' WHERE id = v_listing.id;
-    END IF;
-    PERFORM public.notify_user(
-      v_offer.buyer_id, 'Offer', 'Offer declined',
-      format('@%s declined your %s for “%s”.', v_seller, CASE v_offer.kind WHEN 'borrow' THEN 'borrow request' WHEN 'claim' THEN 'claim' ELSE 'offer' END, v_listing.title),
-      'x', 'red', 'View listing'
-    );
-    RETURN;
-  END IF;
-
   IF p_action = 'counter' THEN
+    IF NOT v_is_seller AND NOT v_is_buyer AND NOT public.is_admin() THEN
+      RAISE EXCEPTION 'Only the buyer or seller can counter this request';
+    END IF;
+    IF v_offer.status NOT IN ('pending', 'countered') THEN
+      RAISE EXCEPTION 'This request is no longer pending';
+    END IF;
     IF v_offer.kind = 'claim' THEN
       RAISE EXCEPTION 'Claims cannot be countered';
     END IF;
@@ -323,10 +310,43 @@ BEGIN
       SET status = 'countered', start_at = p_counter_start, end_at = p_counter_end, detail = v_detail
       WHERE id = p_offer_id;
     END IF;
+
+    IF v_is_buyer THEN
+      SELECT username INTO v_actor FROM public.profiles WHERE id = v_offer.buyer_id;
+      PERFORM public.notify_user(
+        v_listing.seller_id, 'Offer', 'Buyer sent a counter',
+        format('@%s countered for “%s”. %s', v_actor, v_listing.title, v_detail),
+        'inbox', 'gold', 'View listing'
+      );
+    ELSE
+      SELECT username INTO v_actor FROM public.profiles WHERE id = v_listing.seller_id;
+      PERFORM public.notify_user(
+        v_offer.buyer_id, 'Offer', 'Seller sent a counter',
+        format('@%s countered your %s for “%s”. %s', v_actor, CASE WHEN v_offer.kind = 'borrow' THEN 'borrow request' ELSE 'offer' END, v_listing.title, v_detail),
+        'inbox', 'gold', 'View deal'
+      );
+    END IF;
+    RETURN;
+  END IF;
+
+  IF NOT v_is_seller AND NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Only the seller can accept or decline this request';
+  END IF;
+  IF v_offer.status NOT IN ('pending', 'countered') THEN
+    RAISE EXCEPTION 'This request is no longer pending';
+  END IF;
+
+  SELECT username INTO v_actor FROM public.profiles WHERE id = v_listing.seller_id;
+
+  IF p_action = 'decline' THEN
+    UPDATE public.offers SET status = 'declined' WHERE id = p_offer_id;
+    IF v_offer.kind = 'claim' AND v_listing.status = 'reserved' THEN
+      UPDATE public.listings SET status = 'live' WHERE id = v_listing.id;
+    END IF;
     PERFORM public.notify_user(
-      v_offer.buyer_id, 'Offer', 'Seller sent a counter',
-      format('@%s countered your %s for “%s”. %s', v_seller, CASE WHEN v_offer.kind = 'borrow' THEN 'borrow request' ELSE 'offer' END, v_listing.title, v_detail),
-      'inbox', 'gold', 'View deal'
+      v_offer.buyer_id, 'Offer', 'Offer declined',
+      format('@%s declined your %s for “%s”.', v_actor, CASE v_offer.kind WHEN 'borrow' THEN 'borrow request' WHEN 'claim' THEN 'claim' ELSE 'offer' END, v_listing.title),
+      'x', 'red', 'View listing'
     );
     RETURN;
   END IF;
@@ -349,7 +369,7 @@ BEGIN
 
   PERFORM public.notify_user(
     v_offer.buyer_id, 'Offer', 'Your offer was accepted',
-    format('@%s accepted your %s for “%s”. Listing is now %s.', v_seller, CASE v_offer.kind WHEN 'borrow' THEN 'borrow request' WHEN 'claim' THEN 'claim' ELSE 'offer' END, v_listing.title, v_next_listing_status),
+    format('@%s accepted your %s for “%s”. Listing is now %s.', v_actor, CASE v_offer.kind WHEN 'borrow' THEN 'borrow request' WHEN 'claim' THEN 'claim' ELSE 'offer' END, v_listing.title, v_next_listing_status),
     'check', 'green', 'View deal'
   );
 END;
