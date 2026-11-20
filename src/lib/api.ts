@@ -1173,27 +1173,6 @@ export async function submitListingAction(
   return data as number;
 }
 
-export async function postOfferChatIfBuyerThread(
-  listingId: number,
-  body: string,
-  offerId: number,
-) {
-  try {
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return;
-    const { data: thread } = await supabase
-      .from("chat_threads")
-      .select("id")
-      .eq("listing_id", listingId)
-      .eq("buyer_id", auth.user.id)
-      .maybeSingle();
-    if (!thread?.id) return;
-    await sendChatMessage(thread.id, body, "offer", "Buyer", offerId);
-  } catch {
-    /* The offer row is already saved; chat sync must not fail the submit. */
-  }
-}
-
 export async function respondToOffer(
   offerId: number,
   action: "accept" | "decline" | "counter",

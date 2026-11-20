@@ -605,14 +605,11 @@ function DetailModal({
         start: startDate,
         end: endDate,
       })
-      .then((offerId) => {
+      .then(() => {
         const detail =
           listing.type === "Sell"
             ? api.offerDetailLabel({ type: "Sell", price: Number(offerPrice) })
             : api.offerDetailLabel({ type: "Lend", start: startDate, end: endDate });
-        if (typeof offerId === "number") {
-          void api.postOfferChatIfBuyerThread(listing.id, detail, offerId);
-        }
         const message =
           listing.type === "Sell"
             ? `${detail} sent to @${listing.seller}`
