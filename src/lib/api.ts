@@ -1631,7 +1631,7 @@ export function subscribeMyNotifications(
     }
   };
 
-  let dealsTimer: ReturnType<typeof setTimeout> | null = null;
+  let dealsTimer: number | null = null;
   const bumpDeals = () => {
     if (!handlers.onDealsChange) return;
     if (dealsTimer) window.clearTimeout(dealsTimer);
