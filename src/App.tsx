@@ -64,6 +64,7 @@ function chatOffersForListing(
 
 function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   if (message.kind !== "offer") return false;
+  if (message.offerStatus === "Declined") return true;
   const group = message.offerId
     ? messages.filter((item) => item.kind === "offer" && item.offerId === message.offerId)
     : messages.filter((item) => item.kind === "offer");
