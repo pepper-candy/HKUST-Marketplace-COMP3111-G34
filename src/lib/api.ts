@@ -65,6 +65,7 @@ export type BuyerDeal = {
   kind: "Offer" | "Borrow" | "Claim";
   status: string;
   date: string;
+  rawDate?: string;
   detail: string;
   dueDate?: string;
   completed?: boolean;
@@ -397,22 +398,47 @@ function offerStatusUi(status: string): SellerRequest["status"] {
   return "Pending";
 }
 
+const HK_TIME_ZONE = "Asia/Hong_Kong";
+
+function hongKongDateTimeToIso(value: string) {
+  if (!value) return null;
+  // datetime-local values from this app are wall-clock times in Hong Kong.
+  if (/T\d{2}:\d{2}$/.test(value)) return new Date(`${value}:00+08:00`).toISOString();
+  if (/T\d{2}:\d{2}:\d{2}$/.test(value)) return new Date(`${value}+08:00`).toISOString();
+  return new Date(value).toISOString();
+}
+
+function hongKongDateKey(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: HK_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 function formatRelative(iso: string) {
   const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
   const diff = Date.now() - date.getTime();
-  const minutes = Math.round(diff / 60000);
+  if (diff < 0) return "Just now";
+  const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return "Just now";
   if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
+  const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
+  const days = Math.floor(hours / 24);
   if (days === 1) return "Yesterday";
   if (days < 7) return `${days}d ago`;
-  return new Intl.DateTimeFormat("en-HK", { dateStyle: "medium" }).format(date);
+  return new Intl.DateTimeFormat("en-HK", {
+    timeZone: HK_TIME_ZONE,
+    dateStyle: "medium",
+  }).format(date);
 }
 
 function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat("en-HK", {
+    timeZone: HK_TIME_ZONE,
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(iso));
@@ -456,6 +482,7 @@ export function chatOfferStatusUi(status: string | undefined | null): ChatOfferS
 
 function formatClock(iso: string) {
   return new Intl.DateTimeFormat("en-HK", {
+    timeZone: HK_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
@@ -464,8 +491,19 @@ function formatClock(iso: string) {
 
 function isToday(iso: string) {
   const date = new Date(iso);
-  const now = new Date();
-  return date.toDateString() === now.toDateString();
+  const dateKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: HK_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+  const nowKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: HK_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return dateKey === nowKey;
 }
 
 const OPTIMISTIC_CHAT_ID = 1_000_000_000_000;
@@ -857,6 +895,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
         kind: offerKindUi(offer.kind),
         status,
         date: formatDateTime(offer.created_at),
+        rawDate: offer.completed_at ?? offer.created_at,
         detail: unifyStoredOfferDetail(offer.detail),
         dueDate: offer.end_at ? formatDateTime(offer.end_at) : undefined,
         completed,
@@ -1009,7 +1048,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     .map((deal) => ({
       id: deal.id,
       listing: deal.listing,
-      date: new Date().toISOString().slice(0, 10),
+      date: hongKongDateKey(new Date(deal.rawDate ?? deal.date)),
       type:
         deal.kind === "Borrow" ? "Borrowed" : deal.kind === "Claim" ? "Received" : "Bought",
       outcome: deal.status,
@@ -1203,8 +1242,8 @@ export async function submitListingAction(
     p_listing_id: listing.id,
     p_kind: listing.type === "Lend" ? "borrow" : "offer",
     p_price: listing.type === "Sell" ? input.price : null,
-    p_start_at: listing.type === "Lend" && input.start ? new Date(input.start).toISOString() : null,
-    p_end_at: listing.type === "Lend" && input.end ? new Date(input.end).toISOString() : null,
+    p_start_at: listing.type === "Lend" ? hongKongDateTimeToIso(input.start ?? "") : null,
+    p_end_at: listing.type === "Lend" ? hongKongDateTimeToIso(input.end ?? "") : null,
   });
   if (error) throw new Error(rpcMessage(error));
   return data as number;
@@ -1240,8 +1279,8 @@ export async function respondToOffer(
     p_offer_id: offerId,
     p_action: action,
     p_counter_price: counter?.price ?? null,
-    p_counter_start: counter?.start ? new Date(counter.start).toISOString() : null,
-    p_counter_end: counter?.end ? new Date(counter.end).toISOString() : null,
+    p_counter_start: counter?.start ? hongKongDateTimeToIso(counter.start) : null,
+    p_counter_end: counter?.end ? hongKongDateTimeToIso(counter.end) : null,
   });
   if (error) throw new Error(rpcMessage(error));
 }
@@ -1315,8 +1354,8 @@ export async function buyerCounterOffer(
   const { error } = await supabase.rpc("buyer_counter_offer", {
     p_offer_id: offerId,
     p_counter_price: counter.price ?? null,
-    p_counter_start: counter.start ? new Date(counter.start).toISOString() : null,
-    p_counter_end: counter.end ? new Date(counter.end).toISOString() : null,
+    p_counter_start: counter.start ? hongKongDateTimeToIso(counter.start) : null,
+    p_counter_end: counter.end ? hongKongDateTimeToIso(counter.end) : null,
   });
   if (!error) return;
 
@@ -1337,8 +1376,8 @@ export async function buyerCounterOffer(
     p_listing_id: offer.listing_id,
     p_kind: kind,
     p_price: counter.price ?? null,
-    p_start_at: counter.start ? new Date(counter.start).toISOString() : null,
-    p_end_at: counter.end ? new Date(counter.end).toISOString() : null,
+    p_start_at: counter.start ? hongKongDateTimeToIso(counter.start) : null,
+    p_end_at: counter.end ? hongKongDateTimeToIso(counter.end) : null,
   });
   if (fallbackError) throw new Error(rpcMessage(fallbackError));
 }
@@ -1415,7 +1454,7 @@ export async function hideRating(ratingId: number, hidden = true) {
 export async function replyToReview(ratingId: number, reply: string) {
   const { error } = await supabase
     .from("ratings")
-    .update({ seller_reply: reply.trim(), replied_at: new Date().toISOString() })
+    .update({ seller_reply: reply.trim() })
     .eq("id", ratingId);
   throwIf(error);
 }
