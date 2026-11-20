@@ -1214,6 +1214,14 @@ export async function acceptCounterOffer(offerId: number) {
   if (error) throw new Error(rpcMessage(error));
 }
 
+export async function acceptListingPrice(listing: Listing) {
+  const { data, error } = await supabase.rpc("accept_listing_price", {
+    p_listing_id: listing.id,
+  });
+  if (error) throw new Error(rpcMessage(error));
+  return data as number;
+}
+
 export async function declineCounterOffer(offerId: number) {
   const { error } = await supabase.rpc("decline_counter_offer", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));

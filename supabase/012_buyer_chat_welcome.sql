@@ -158,65 +158,6 @@ BEGIN
       );
     END IF;
   ELSE
-    IF v_offer_id IS NULL THEN
-      IF v_listing.listing_type = 'sell' THEN
-        IF v_listing.price IS NULL OR v_listing.price <= 0 THEN
-          PERFORM set_config('app.skip_chat_notify', '', true);
-          RETURN v_thread_id;
-        END IF;
-        IF v_listing.price = trunc(v_listing.price) THEN
-          v_price_text := trim(to_char(v_listing.price, 'FM999999999990'));
-        ELSE
-          v_price_text := trim(to_char(v_listing.price, 'FM999999999990.00'));
-        END IF;
-        v_offer_detail := format('Offer: HK$%s', v_price_text);
-        BEGIN
-          INSERT INTO public.offers (listing_id, buyer_id, kind, status, price, detail)
-          VALUES (p_listing_id, v_buyer, 'offer', 'countered', v_listing.price, v_offer_detail)
-          RETURNING id INTO v_offer_id;
-        EXCEPTION
-          WHEN unique_violation THEN
-            SELECT id, detail INTO v_offer_id, v_offer_detail
-            FROM public.offers
-            WHERE listing_id = p_listing_id
-              AND buyer_id = v_buyer
-              AND status IN ('pending', 'countered')
-            ORDER BY updated_at DESC
-            LIMIT 1;
-        END;
-      ELSE
-        v_duration := (
-          coalesce(v_listing.lending_duration_value, 7)::text
-          || ' '
-          || coalesce(v_listing.lending_duration_unit, 'Days')
-        )::interval;
-        IF v_duration < interval '5 seconds' THEN
-          v_duration := interval '7 days';
-        END IF;
-        v_start := now();
-        v_end := v_start + v_duration;
-        v_offer_detail := format(
-          'Borrow request: %s → %s',
-          to_char(v_start AT TIME ZONE 'Asia/Hong_Kong', 'FMDD Mon YYYY, FMHH12:MI am'),
-          to_char(v_end AT TIME ZONE 'Asia/Hong_Kong', 'FMDD Mon YYYY, FMHH12:MI am')
-        );
-        BEGIN
-          INSERT INTO public.offers (listing_id, buyer_id, kind, status, start_at, end_at, detail)
-          VALUES (p_listing_id, v_buyer, 'borrow', 'countered', v_start, v_end, v_offer_detail)
-          RETURNING id INTO v_offer_id;
-        EXCEPTION
-          WHEN unique_violation THEN
-            SELECT id, detail INTO v_offer_id, v_offer_detail
-            FROM public.offers
-            WHERE listing_id = p_listing_id
-              AND buyer_id = v_buyer
-              AND status IN ('pending', 'countered')
-            ORDER BY updated_at DESC
-            LIMIT 1;
-        END;
-      END IF;
-    END IF;
-
     INSERT INTO public.chat_messages (thread_id, sender_id, body, kind, offer_id)
     VALUES (
       v_thread_id,
