@@ -7094,7 +7094,6 @@ export default function App() {
       setSelected(null);
       setChatCounterparty(participant ?? listing.seller);
       setChatListing(listing);
-      if (role === "Buyer") void refresh();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Could not open chat.");
     }
