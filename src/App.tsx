@@ -1373,6 +1373,7 @@ function ChatScreen({
   onOpenListing,
   onRefresh,
   onAction,
+  onFormalOfferSubmitted,
 }: {
   listing: Listing;
   role: Role;
@@ -1387,6 +1388,7 @@ function ChatScreen({
   onOpenListing: (listing: Listing) => void;
   onRefresh: () => Promise<unknown>;
   onAction: (message: string) => void;
+  onFormalOfferSubmitted: (listingId: number) => void;
 }) {
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
@@ -1484,6 +1486,7 @@ function ChatScreen({
     setActing(true);
 
     const afterOffer = (offerId: number, status: ChatOfferStatus) => {
+      onFormalOfferSubmitted(listing.id);
       sendOptimistic(
         {
           sender: currentSender,
@@ -2144,6 +2147,7 @@ function RateSellersPage({
 
 function MyDealsPage({
   deals,
+  chatOnlyListingIds,
   onDealsChange,
   onOpenListing,
   onChatListing,
@@ -2151,6 +2155,7 @@ function MyDealsPage({
   onRefresh,
 }: {
   deals: BuyerDeal[];
+  chatOnlyListingIds: Set<number>;
   onDealsChange: (deals: BuyerDeal[]) => void;
   onOpenListing: (listing: Listing) => void;
   onChatListing: (listing: Listing, participant?: string) => void;
@@ -2163,6 +2168,7 @@ function MyDealsPage({
   const [tab, setTab] = useState<"Active" | "Chats" | "Completed">("Active");
   const [chats, setChats] = useState<api.MyChatThread[]>([]);
   const activeDeals = deals.filter((deal) => {
+    if (chatOnlyListingIds.has(deal.listing.id)) return false;
     if (deal.completed || deal.status === "Declined") return false;
     if (
       (deal.status === "Pending" || deal.status === "Countered") &&
@@ -6127,6 +6133,7 @@ function SupportingPage({
   onAdminProfileChange,
   ratedDealIds,
   onRatedDealIdsChange,
+  chatOnlyListingIds,
 }: {
   page: string;
   role: Role;
@@ -6163,6 +6170,7 @@ function SupportingPage({
   onAdminProfileChange: (profile: AdminProfile) => void;
   ratedDealIds: number[];
   onRatedDealIdsChange: (ids: number[]) => void;
+  chatOnlyListingIds: Set<number>;
 }) {
   const data = pageData[page] ?? {
     title: page,
@@ -6173,6 +6181,7 @@ function SupportingPage({
     return (
       <MyDealsPage
         deals={buyerDealState}
+        chatOnlyListingIds={chatOnlyListingIds}
         onDealsChange={onBuyerDealsChange}
         onOpenListing={onOpenListing}
         onChatListing={onChatListing}
@@ -6883,6 +6892,9 @@ export default function App() {
   const [chatCounterparty, setChatCounterparty] = useState("");
   const [chatThreadId, setChatThreadId] = useState<number | null>(null);
   const [chatMessages, setChatMessages] = useState<Record<number, ChatMessage[]>>({});
+  const [chatOnlyListingIds, setChatOnlyListingIds] = useState<Set<number>>(
+    () => new Set<number>(),
+  );
   const [listingChatPeople, setListingChatPeople] = useState<
     { id: string; buyer: string; lastMessage: string }[]
   >([]);
@@ -7094,6 +7106,9 @@ export default function App() {
       setSelected(null);
       setChatCounterparty(participant ?? listing.seller);
       setChatListing(listing);
+      if (role === "Buyer") {
+        setChatOnlyListingIds((current) => new Set(current).add(listing.id));
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Could not open chat.");
     }
@@ -7318,6 +7333,13 @@ export default function App() {
               }}
               onRefresh={refresh}
               onAction={showToast}
+              onFormalOfferSubmitted={(listingId) =>
+                setChatOnlyListingIds((current) => {
+                  const next = new Set(current);
+                  next.delete(listingId);
+                  return next;
+                })
+              }
             />
           ) : role === "Buyer" && page === "Browse" ? (
             <Browse
@@ -7362,6 +7384,7 @@ export default function App() {
               onAdminProfileChange={setAdminProfile}
               ratedDealIds={ratedDealIds}
               onRatedDealIdsChange={setRatedDealIds}
+              chatOnlyListingIds={chatOnlyListingIds}
             />
           )}
           {!chatListing && (
