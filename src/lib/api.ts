@@ -822,7 +822,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
 
   const buyerDeals: BuyerDeal[] = offers
     .filter((offer) => offer.buyer_id === me.id)
-    .map((offer) => {
+    .map((offer): BuyerDeal | null => {
       const listingRow = listingById.get(offer.listing_id);
       const listing = listingUiById.get(offer.listing_id);
       if (!listingRow || !listing) return null;
