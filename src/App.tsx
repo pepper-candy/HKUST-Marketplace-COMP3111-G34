@@ -1407,10 +1407,20 @@ function ChatScreen({
     action: "Accept" | "Decline" | "Buy";
   } | null>(null);
   const currentSender = role === "Seller" ? "seller" : "buyer";
-  const sendingCounter = role === "Seller";
+  const buyerHasSellerCounter = role === "Buyer" &&
+    messages.some(
+      (message) =>
+        message.kind === "offer" &&
+        message.sender === "seller" &&
+        message.offerStatus === "Countered" &&
+        message.offerId === activeOfferId,
+    );
+  const sendingCounter = role === "Seller" || buyerHasSellerCounter;
   const canFormalOffer =
     listing.type !== "Give Away" &&
-    ((role === "Buyer" && listing.type !== "Sell") || (role === "Seller" && Boolean(activeOfferId)));
+    ((role === "Buyer" &&
+      (listing.type !== "Sell" || buyerHasSellerCounter)) ||
+      (role === "Seller" && Boolean(activeOfferId)));
 
   const visibleMessages = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -1419,7 +1429,8 @@ function ChatScreen({
         role === "Buyer" &&
         listing.type === "Sell" &&
         message.kind === "offer" &&
-        message.sender === "seller"
+        message.sender === "seller" &&
+        message.offerStatus !== "Countered"
       ) {
         return false;
       }
@@ -1524,6 +1535,22 @@ function ChatScreen({
       if (!activeOfferId) {
         setActing(false);
         setOfferError("No pending offer to counter.");
+        return;
+      }
+      void api
+        .respondToOffer(activeOfferId, "counter", { price, start, end })
+        .then(() => afterOffer(activeOfferId, "Countered"))
+        .catch((err) =>
+          setOfferError(err instanceof Error ? err.message : "Could not send counter."),
+        )
+        .finally(() => setActing(false));
+      return;
+    }
+
+    if (buyerHasSellerCounter) {
+      if (!activeOfferId) {
+        setActing(false);
+        setOfferError("No seller counter to respond to.");
         return;
       }
       void api
@@ -1738,16 +1765,25 @@ function ChatScreen({
                     )}
                     {buyerCanRespond && (
                       <div className="chat-offer-buttons">
-                        {buyerCanRespond && (
-                          <button
-                            type="button"
-                            className="request-decline"
-                            disabled={acting}
-                            onClick={() => setConfirming({ offerId, action: "Decline" })}
-                          >
-                            Decline
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="request-decline"
+                          disabled={acting}
+                          onClick={() => setConfirming({ offerId, action: "Decline" })}
+                        >
+                          Decline
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-action"
+                          disabled={acting}
+                          onClick={() => {
+                            setOfferOpen(true);
+                            setOfferError("");
+                          }}
+                        >
+                          Counter
+                        </button>
                         <button
                           type="button"
                           className="primary-action"
@@ -2355,6 +2391,13 @@ function MyDealsPage({
                 onClick={() => void declineCounter(deal)}
               >
                 {decliningDealId === deal.id ? "Declining…" : "Decline counter"}
+              </button>
+              <button
+                type="button"
+                className="secondary-action"
+                onClick={() => onChatListing(deal.listing)}
+              >
+                Counter
               </button>
               <button
                 type="button"
