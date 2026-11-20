@@ -1301,7 +1301,14 @@ export async function sellerMakeOffer(
     p_start_at: offer.start ? hongKongDateTimeToIso(offer.start) : null,
     p_end_at: offer.end ? hongKongDateTimeToIso(offer.end) : null,
   });
-  if (error) throw new Error(rpcMessage(error));
+  if (!error) return;
+
+  const dedicatedMissing =
+    error.code === "PGRST202" ||
+    /could not find the function|schema cache/i.test(error.message);
+  if (!dedicatedMissing) throw new Error(rpcMessage(error));
+
+  await respondToOffer(offerId, "counter", offer);
 }
 
 export async function acceptCounterOffer(offerId: number) {
