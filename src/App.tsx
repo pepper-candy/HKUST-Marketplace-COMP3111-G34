@@ -626,6 +626,7 @@ function DetailModal({
   };
 
   const openAction = () => {
+    setFormError("");
     if (listing.type === "Give Away") {
       setSubmitting(true);
       void api
@@ -1096,12 +1097,15 @@ function DetailModal({
                   </div>
                 </div>
               )}
+              {formError && <p className="form-error listing-form-error">{formError}</p>}
               {!listingOffers.some((offer) => offer.type !== "Chat") && (
               <div className="detail-actions">
                 {role === "Buyer" && listing.type === "Sell" && (
                   <button
+                    type="button"
                     className="primary-action"
                     onClick={() => {
+                      setFormError("");
                       setSubmitting(true);
                       void api
                         .acceptListingPrice(listing)
