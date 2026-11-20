@@ -2542,7 +2542,7 @@ function MyDealsPage({
             ) : (
               <button className="primary-action give-review-action" onClick={() => setRatingDeal(deal)}>
                 <Icon name="star" size={15} />
-                Give reviews
+                Rate seller
               </button>
             ))}
         </div>
