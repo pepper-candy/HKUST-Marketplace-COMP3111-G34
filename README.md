@@ -51,7 +51,9 @@ For a graded demo the marketplace should not be empty. After `001` (and `002` if
 6. One offer per buyer+listing (listing detail and chat Make Offer share the same row): SQL Editor → paste `supabase/010_unify_offers.sql` → **Run** (do **not** re-run `001`).
 7. Buyer acceptance of seller counters and buyer decline of seller counters: SQL Editor → paste `supabase/011_buyer_decline_counter.sql` → **Run** (do **not** re-run `001`).
 8. Buyer empty-chat welcome + listing terms: SQL Editor → paste `supabase/012_buyer_chat_welcome.sql` → **Run** (do **not** re-run `001`).
-9. Log in from `demo/accounts.csv`. Use the **Buyer** or **Seller** portal that matches the row. Usernames have no `@` except admin.
+9. Completed deals hide listings: SQL Editor → paste `supabase/013_completed_deals_hide_listings.sql` → **Run** (do **not** re-run `001`).
+10. Direct fixed-price purchases: SQL Editor → paste `supabase/014_direct_listing_purchase.sql` → **Run** (do **not** re-run `001`). This enables **Buy now**, which accepts the seller’s listed price and reserves the item immediately.
+11. Log in from `demo/accounts.csv`. Use the **Buyer** or **Seller** portal that matches the row. Usernames have no `@` except admin.
 
 Counts (meant to look like a couple of weeks on campus, not a full year):
 
