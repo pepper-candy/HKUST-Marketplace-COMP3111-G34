@@ -1407,14 +1407,21 @@ function ChatScreen({
     action: "Accept" | "Decline" | "Buy";
   } | null>(null);
   const currentSender = role === "Seller" ? "seller" : "buyer";
-  const buyerHasSellerCounter = role === "Buyer" &&
-    messages.some(
-      (message) =>
-        message.kind === "offer" &&
-        message.sender === "seller" &&
-        message.offerStatus === "Countered" &&
-        message.offerId === activeOfferId,
-    );
+  const sellerCounterMessage = role === "Buyer"
+    ? [...messages]
+        .reverse()
+        .find(
+          (message) =>
+            message.kind === "offer" &&
+            message.sender === "seller" &&
+            message.offerStatus === "Countered",
+        )
+    : undefined;
+  const counterOfferId =
+    activeOfferId ??
+    sellerCounterMessage?.offerId ??
+    null;
+  const buyerHasSellerCounter = Boolean(sellerCounterMessage);
   const sendingCounter = role === "Seller" || buyerHasSellerCounter;
   const canFormalOffer =
     listing.type !== "Give Away" &&
@@ -1548,14 +1555,14 @@ function ChatScreen({
     }
 
     if (buyerHasSellerCounter) {
-      if (!activeOfferId) {
+      if (!counterOfferId) {
         setActing(false);
         setOfferError("No seller counter to respond to.");
         return;
       }
       void api
-        .respondToOffer(activeOfferId, "counter", { price, start, end })
-        .then(() => afterOffer(activeOfferId, "Countered"))
+        .respondToOffer(counterOfferId, "counter", { price, start, end })
+        .then(() => afterOffer(counterOfferId, "Countered"))
         .catch((err) =>
           setOfferError(err instanceof Error ? err.message : "Could not send counter."),
         )
@@ -1778,8 +1785,8 @@ function ChatScreen({
                           className="secondary-action"
                           disabled={acting}
                           onClick={() => {
-                            setOfferOpen(true);
                             setOfferError("");
+                            setOfferOpen(true);
                           }}
                         >
                           Counter
