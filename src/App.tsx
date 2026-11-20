@@ -1452,6 +1452,7 @@ function ChatScreen({
       ...message,
       id: tempId,
       time: new Intl.DateTimeFormat("en-HK", {
+        timeZone: "Asia/Hong_Kong",
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
@@ -2877,8 +2878,11 @@ function DealHistoryPage({
                   </td>
                   <td>@{deal.listing.seller}</td>
                   <td>
-                    {new Intl.DateTimeFormat("en-HK", { dateStyle: "medium" }).format(
-                      new Date(`${deal.date}T12:00:00`),
+                    {new Intl.DateTimeFormat("en-HK", {
+                      timeZone: "Asia/Hong_Kong",
+                      dateStyle: "medium",
+                    }).format(
+                      new Date(`${deal.date}T12:00:00+08:00`),
                     )}
                   </td>
                   <td>
