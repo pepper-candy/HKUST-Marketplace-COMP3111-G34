@@ -1398,7 +1398,7 @@ function ChatScreen({
   const [acting, setActing] = useState(false);
   const [confirming, setConfirming] = useState<{
     offerId: number | null;
-    action: "Accept" | "Decline";
+    action: "Accept" | "Decline" | "Buy";
   } | null>(null);
   const currentSender = role === "Seller" ? "seller" : "buyer";
   const sendingCounter = role === "Seller";
@@ -1536,7 +1536,7 @@ function ChatScreen({
     let request: Promise<unknown>;
     if (isClaim) {
       request = api.submitListingAction(listing, {});
-    } else if (action === "Accept" && offerId == null) {
+    } else if ((action === "Buy" || action === "Accept") && offerId == null) {
       request = api.acceptListingPrice(listing);
     } else if (offerId != null && action === "Accept") {
       request = api.acceptCounterOffer(offerId);
@@ -1560,7 +1560,7 @@ function ChatScreen({
               message.sender === "seller")
               ? {
                   ...message,
-                  offerStatus: action === "Accept" ? "Accepted" : "Declined",
+                  offerStatus: action === "Decline" ? "Declined" : "Accepted",
                 }
               : message,
           ),
@@ -1568,9 +1568,11 @@ function ChatScreen({
         onAction(
           isClaim
             ? `Claim sent to @${counterparty}`
-            : action === "Accept"
-              ? `Offer accepted. @${counterparty} was notified.`
-              : `Offer declined. @${counterparty} was notified.`,
+            : action === "Buy"
+              ? `Purchase completed for ${listing.title}`
+              : action === "Accept"
+                ? `Offer accepted. @${counterparty} was notified.`
+                : `Offer declined. @${counterparty} was notified.`,
         );
         setConfirming(null);
       })
@@ -1659,19 +1661,25 @@ function ChatScreen({
                 offerId == null &&
                 offerStatus !== "Accepted" &&
                 offerStatus !== "Declined";
-              const buyerCanBuyAtListedPrice =
+              const listedPriceText = listing.price == null
+                ? ""
+                : `HK$${listing.price}`;
+              const isListedPriceBubble =
                 role === "Buyer" &&
                 listing.type === "Sell" &&
                 message.kind === "offer" &&
                 message.sender === "seller" &&
-                !stale &&
-                offerId == null;
+                listedPriceText !== "" &&
+                unifyOfferCopy(message.body, listing.type).includes(listedPriceText);
+              const buyerCanBuyAtListedPrice =
+                isListedPriceBubble && !stale && offerStatus !== "Accepted";
               const buyerCanRespond =
                 role === "Buyer" &&
                 listing.type !== "Give Away" &&
                 message.kind === "offer" &&
                 message.sender === "seller" &&
                 !stale &&
+                !isListedPriceBubble &&
                 offerStatus === "Countered" &&
                 offerId != null;
               return (
@@ -1738,9 +1746,14 @@ function ChatScreen({
                           type="button"
                           className="primary-action"
                           disabled={acting}
-                          onClick={() => setConfirming({ offerId: offerId ?? null, action: "Accept" })}
+                          onClick={() =>
+                            setConfirming({
+                              offerId: null,
+                              action: buyerCanBuyAtListedPrice ? "Buy" : "Accept",
+                            })
+                          }
                         >
-                          Accept offer
+                          {buyerCanBuyAtListedPrice ? "Buy now" : "Accept offer"}
                         </button>
                       </div>
                     )}
@@ -1870,17 +1883,21 @@ function ChatScreen({
             aria-modal="true"
           >
             <span className={`confirm-icon ${confirming.action.toLowerCase()}`}>
-              <Icon name={confirming.action === "Accept" ? "check" : "x"} size={23} />
+              <Icon name={confirming.action === "Decline" ? "x" : "check"} size={23} />
             </span>
             <h2>
               {listing.type === "Give Away"
                 ? "Claim this item?"
-                : `${confirming.action} this ${listing.type === "Lend" ? "borrow request" : "offer"}?`}
+                : confirming.action === "Buy"
+                  ? "Complete this purchase?"
+                  : `${confirming.action} this ${listing.type === "Lend" ? "borrow request" : "offer"}?`}
             </h2>
             <p>
               {listing.type === "Give Away"
                 ? `@${counterparty} will be notified so you can arrange a meetup.`
-                : confirming.action === "Accept"
+                : confirming.action === "Buy"
+                  ? `Buy this item at the seller’s listed price of HK$${listing.price?.toLocaleString()}. The deal will be completed immediately.`
+                  : confirming.action === "Accept"
                   ? `The listing status will update and @${counterparty} will be notified.`
                   : `The request will close and @${counterparty} will be notified.`}
             </p>
@@ -1893,11 +1910,17 @@ function ChatScreen({
                 Cancel
               </button>
               <button
-                className={confirming.action === "Accept" ? "primary-action" : "destructive-action"}
+                className={
+                  confirming.action === "Decline" ? "destructive-action" : "primary-action"
+                }
                 disabled={acting}
                 onClick={confirmBuyerCounter}
               >
-                {listing.type === "Give Away" ? "Claim item" : `${confirming.action} offer`}
+                {listing.type === "Give Away"
+                  ? "Claim item"
+                  : confirming.action === "Buy"
+                    ? "Complete purchase"
+                    : `${confirming.action} offer`}
               </button>
             </div>
           </div>
