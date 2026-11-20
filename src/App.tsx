@@ -154,7 +154,11 @@ function withListingChatPeople(
   offers: ListingOfferItem[],
   people: { id: string; buyer: string; lastMessage: string }[],
 ) {
-  const seen = new Set(offers.map((offer) => offer.buyer.trim().toLowerCase()));
+  const seen = new Set(
+    offers
+      .filter((offer) => offer.buyer)
+      .map((offer) => offer.buyer.trim().toLowerCase()),
+  );
   return [
     ...offers,
     ...people
@@ -1440,6 +1444,7 @@ function ChatScreen({
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [offerOpen, setOfferOpen] = useState(false);
+  const [formalAction, setFormalAction] = useState<"offer" | "counter">("offer");
   const [offerPrice, setOfferPrice] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -1596,26 +1601,45 @@ function ChatScreen({
       setOfferPrice("");
       setStartDate("");
       setEndDate("");
-      onAction(sendingCounter ? "Counter sent" : listing.type === "Sell" ? "Offer sent" : "Borrow request sent");
+      onAction(
+        formalAction === "counter" || sendingCounter
+          ? "Counter sent"
+          : listing.type === "Sell"
+            ? "Offer sent"
+            : "Borrow request sent",
+      );
       void onRefresh();
     };
 
     if (role === "Seller") {
-      setActing(true);
-      sendOptimistic(
-        {
-          sender: "seller",
-          body,
-          kind: "offer",
-          offerStatus: "Pending",
-        },
-        "offer",
-      );
-      setOfferOpen(false);
-      setOfferPrice("");
-      setStartDate("");
-      setEndDate("");
-      onAction("Offer sent");
+      if (formalAction === "counter") {
+        if (effectiveSellerOfferId == null) {
+          setActing(false);
+          setOfferError("No buyer offer to counter.");
+          return;
+        }
+        void api
+          .respondToOffer(effectiveSellerOfferId, "counter", { price, start, end })
+          .then(() => afterOffer(effectiveSellerOfferId, "Countered"))
+          .catch((err) =>
+            setOfferError(err instanceof Error ? err.message : "Could not send counter."),
+          )
+          .finally(() => setActing(false));
+        return;
+      }
+
+      if (sellerCanMakeOffer && declinedOfferId != null) {
+        void api
+          .sellerMakeOffer(declinedOfferId, { price, start, end })
+          .then(() => afterOffer(declinedOfferId, "Pending"))
+          .catch((err) =>
+            setOfferError(err instanceof Error ? err.message : "Could not send offer."),
+          )
+          .finally(() => setActing(false));
+        return;
+      }
+
+      setOfferError("Send an offer directly from the listing instead.");
       setActing(false);
       return;
     }
@@ -1938,6 +1962,7 @@ function ChatScreen({
                           className="secondary-action"
                           disabled={acting}
                           onClick={() => {
+                            setFormalAction("counter");
                             setOfferError("");
                             setOfferOpen(true);
                           }}
@@ -1978,6 +2003,7 @@ function ChatScreen({
                           className="secondary-action"
                           disabled={acting}
                           onClick={() => {
+                            setFormalAction("counter");
                             setOfferError("");
                             setOfferOpen(true);
                           }}
@@ -2018,9 +2044,11 @@ function ChatScreen({
                 <span>FORMAL ACTION</span>
                 <strong>
                   {role === "Seller"
-                    ? listing.type === "Sell"
-                      ? "Make an offer"
-                      : "Make a lending offer"
+                    ? formalAction === "counter"
+                      ? "Counter offer"
+                      : listing.type === "Sell"
+                        ? "Make an offer"
+                        : "Make a lending offer"
                     : listing.type === "Sell"
                       ? "Make an offer"
                       : "Request a lending period"}
@@ -2081,7 +2109,9 @@ function ChatScreen({
               </button>
               <button className="primary-action" disabled={acting}>
                 {role === "Seller"
-                  ? "Make offer"
+                  ? formalAction === "counter"
+                    ? "Send counter"
+                    : "Make offer"
                   : listing.type === "Sell"
                     ? "Send offer"
                     : "Send request"}
@@ -2092,7 +2122,13 @@ function ChatScreen({
 
         <div className="chat-composer">
           {canFormalOffer ? (
-            <button className="offer-trigger" onClick={() => setOfferOpen(!offerOpen)}>
+            <button
+              className="offer-trigger"
+              onClick={() => {
+                setFormalAction("offer");
+                setOfferOpen(!offerOpen);
+              }}
+            >
               <Icon name="bag" size={17} />
               {role === "Seller"
                 ? "Make an Offer"
@@ -2437,20 +2473,12 @@ function MyDealsPage({
   const [tab, setTab] = useState<"Active" | "Chats" | "Completed">("Active");
   const [chats, setChats] = useState<api.MyChatThread[]>([]);
   const activeDeals = deals.filter((deal) => {
-    if (chatOnlyListingIds.has(deal.listing.id)) return false;
     if (
       deal.completed ||
       deal.status === "Declined" ||
       deal.status === "Cancelled" ||
       deal.status === "Returned"
     ) return false;
-    if (
-      (deal.status === "Pending" || deal.status === "Countered") &&
-      deal.listing.availability &&
-      deal.listing.availability !== "Available"
-    ) {
-      return false;
-    }
     return true;
   });
   const completedDeals = deals.filter((deal) => deal.completed);
@@ -3122,6 +3150,7 @@ type SellerRequest = {
   dealId: number;
   listing: Listing;
   buyer: string;
+  lastActionBy: "buyer" | "seller" | null;
   type: "Offer" | "Borrow" | "Claim";
   submitted: string;
   detail: string;
@@ -3268,7 +3297,9 @@ function SellerRequestsPage({
         onRecordFormalChat(countering.listing, countering.buyer, detail, countering.id);
         onRequestsChange(
           requests.map((request) =>
-            request.id === countering.id ? { ...request, status: "Countered", detail } : request,
+            request.id === countering.id
+              ? { ...request, status: "Countered", detail, lastActionBy: "seller" }
+              : request,
           ),
         );
         updateBuyerDeal(countering, "Countered", detail);
@@ -3284,7 +3315,9 @@ function SellerRequestsPage({
       .finally(() => setBusy(false));
   };
 
-  const pendingCount = availableRequests.filter((request) => request.status === "Pending").length;
+  const pendingCount = availableRequests.filter(
+    (request) => request.status === "Pending" && request.lastActionBy !== "seller",
+  ).length;
 
   return (
     <section>
@@ -3431,7 +3464,8 @@ function SellerRequestsPage({
                     <Icon name="message" size={16} /> Open chat
                   </button>
                   <span />
-                  {(request.status === "Pending" || request.status === "Countered") && (
+                  {(request.status === "Pending" || request.status === "Countered") &&
+                    request.lastActionBy !== "seller" && (
                     <>
                       <button
                         className="request-decline"
@@ -7555,6 +7589,13 @@ export default function App() {
   };
 
   const openChat = async (listing: Listing, participant?: string) => {
+    if (
+      participant === currentUsername ||
+      (listing.seller === currentUsername && !participant)
+    ) {
+      showToast("You cannot open a chat with yourself.");
+      return;
+    }
     try {
       const buyerUsername = role === "Buyer" ? currentUsername : (participant ?? "");
       const buyer = users.find((user) => user.username === buyerUsername);

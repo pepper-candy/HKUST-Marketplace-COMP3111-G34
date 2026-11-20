@@ -251,6 +251,7 @@ type OfferRow = {
   id: number;
   listing_id: number;
   buyer_id: string;
+  last_action_by: "buyer" | "seller" | null;
   kind: "offer" | "borrow" | "claim";
   status: string;
   price: number | string | null;
@@ -815,7 +816,10 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       .order("created_at", { ascending: false }),
     supabase
       .from("chat_messages")
-      .select("offer_id, sender_id, kind"),
+      .select("id, offer_id, sender_id, kind, created_at")
+      .eq("kind", "offer")
+      .not("offer_id", "is", null)
+      .order("created_at", { ascending: true }),
   ]);
 
   throwIf(profilesRes.error);
@@ -830,14 +834,14 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   const offers = (offersRes.data ?? []) as OfferRow[];
   const ratings = (ratingsRes.data ?? []) as RatingRow[];
   const notificationRows = (notificationsRes.data ?? []) as NotificationRow[];
+  const latestOfferActor = new Map<number, string>();
+  for (const message of offerMessagesRes.data ?? []) {
+    if (message.offer_id != null && message.sender_id) {
+      latestOfferActor.set(Number(message.offer_id), message.sender_id);
+    }
+  }
   const me = profiles.find((profile) => profile.id === user.id);
   if (!me) throw new Error("Profile was not found for this account.");
-  const buyerOfferMessageIds = new Set(
-    (offerMessagesRes.data ?? [])
-      .filter((message) => message.kind === "offer" && message.sender_id === me.id)
-      .map((message) => Number(message.offer_id))
-      .filter((offerId) => Number.isFinite(offerId)),
-  );
 
   const listings = listingRows.map((row) => mapListing(row, profiles, ratings));
   const listingById = new Map(listingRows.map((row) => [row.id, row]));
@@ -878,14 +882,6 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     .filter((offer) => {
       if (offer.buyer_id !== me.id) return false;
       if (offer.status === "declined" || offer.status === "cancelled") return false;
-      const listingRow = listingById.get(offer.listing_id);
-      if (
-        listingRow?.listing_type === "sell" &&
-        offer.status === "countered" &&
-        !buyerOfferMessageIds.has(offer.id)
-      ) {
-        return false;
-      }
       return true;
     })
     .map((offer): BuyerDeal | null => {
@@ -913,7 +909,11 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   const sellerRequests: SellerRequest[] = offers
     .filter((offer) => {
       const listing = listingById.get(offer.listing_id);
-      return listing?.seller_id === me.id && listing.status === "live";
+      return (
+        listing?.seller_id === me.id &&
+        listing.status === "live" &&
+        offer.buyer_id !== listing.seller_id
+      );
     })
     .map((offer) => {
       const listingRow = listingById.get(offer.listing_id);
@@ -924,6 +924,13 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
         dealId: offer.id,
         listing,
         buyer: usernameOf(profiles, offer.buyer_id),
+        lastActionBy:
+          offer.last_action_by ??
+          (latestOfferActor.get(offer.id) === listingRow.seller_id
+            ? "seller"
+            : latestOfferActor.get(offer.id) === offer.buyer_id
+              ? "buyer"
+              : null),
         type: offerKindUi(offer.kind),
         submitted: formatRelative(offer.created_at),
         detail: unifyStoredOfferDetail(offer.detail),
@@ -1605,7 +1612,11 @@ export async function listMyChatThreads(): Promise<MyChatThread[]> {
   }
 
   return threads
-    .filter((thread) => !deletedIds.has(thread.id as number))
+    .filter(
+      (thread) =>
+        !deletedIds.has(thread.id as number) &&
+        thread.buyer_id !== thread.seller_id,
+    )
     .map((thread) => {
       const listing = listingById.get(thread.listing_id as number);
       if (!listing) return null;
@@ -1628,11 +1639,15 @@ export async function listMyChatThreads(): Promise<MyChatThread[]> {
 export async function listListingChatPeople(listingId: number) {
   const { data: threads, error } = await supabase
     .from("chat_threads")
-    .select("id, buyer_id, created_at")
+    .select("id, buyer_id, seller_id, created_at")
     .eq("listing_id", listingId)
     .order("created_at", { ascending: false });
   throwIf(error);
   if (!threads?.length) return [];
+  const validThreads = threads.filter(
+    (thread) => thread.buyer_id !== thread.seller_id,
+  );
+  if (!validThreads.length) return [];
 
   const { data: profiles } = await supabase.from("profiles").select("id, username");
   const usernameOfId = (id: string) =>
@@ -1643,7 +1658,7 @@ export async function listListingChatPeople(listingId: number) {
     .select("thread_id, body, created_at")
     .in(
       "thread_id",
-      threads.map((thread) => thread.id),
+      validThreads.map((thread) => thread.id),
     )
     .order("created_at", { ascending: false });
 
@@ -1654,7 +1669,7 @@ export async function listListingChatPeople(listingId: number) {
     }
   }
 
-  return threads.map((thread) => ({
+  return validThreads.map((thread) => ({
     id: `thread-${thread.id}`,
     buyer: usernameOfId(thread.buyer_id as string),
     lastMessage: lastByThread.get(thread.id as number) ?? "",
@@ -1678,7 +1693,9 @@ export async function findChatWithUsername(username: string, listingId?: number)
     .or(`buyer_id.eq.${myId},seller_id.eq.${myId}`);
   throwIf(error);
   const matches = (threads ?? []).filter(
-    (thread) => thread.buyer_id === other.id || thread.seller_id === other.id,
+    (thread) =>
+      thread.buyer_id !== thread.seller_id &&
+      (thread.buyer_id === other.id || thread.seller_id === other.id),
   );
   if (!matches.length) return null;
 
@@ -1733,6 +1750,7 @@ export async function openChatThread(threadId: number) {
   throwIf(error);
   if (!thread) return null;
   if (thread.buyer_id !== auth.user.id && thread.seller_id !== auth.user.id) return null;
+  if (thread.buyer_id === thread.seller_id) return null;
 
   const { data: listingRow } = await supabase
     .from("listings")
@@ -1755,6 +1773,23 @@ export async function openChatThread(threadId: number) {
 }
 
 export async function openChat(listingId: number, buyerId?: string) {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error("Please sign in again.");
+
+  const { data: listing, error: listingError } = await supabase
+    .from("listings")
+    .select("seller_id")
+    .eq("id", listingId)
+    .maybeSingle();
+  throwIf(listingError);
+  if (!listing) throw new Error("Listing not found.");
+  if (
+    (buyerId == null && listing.seller_id === auth.user.id) ||
+    (buyerId != null && buyerId === listing.seller_id)
+  ) {
+    throw new Error("You cannot open a chat with yourself.");
+  }
+
   const { data, error } = await supabase.rpc("open_chat_thread", {
     p_listing_id: listingId,
     p_buyer_id: buyerId ?? null,
