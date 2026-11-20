@@ -877,6 +877,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   const buyerDeals: BuyerDeal[] = offers
     .filter((offer) => {
       if (offer.buyer_id !== me.id) return false;
+      if (offer.status === "declined" || offer.status === "cancelled") return false;
       const listingRow = listingById.get(offer.listing_id);
       if (
         listingRow?.listing_type === "sell" &&
@@ -1370,6 +1371,11 @@ export async function acceptListingPrice(listing: Listing) {
 
 export async function declineCounterOffer(offerId: number) {
   const { error } = await supabase.rpc("decline_counter_offer", { p_offer_id: offerId });
+  if (error) throw new Error(rpcMessage(error));
+}
+
+export async function buyerDeclineOffer(offerId: number) {
+  const { error } = await supabase.rpc("buyer_decline_offer", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));
 }
 
