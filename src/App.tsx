@@ -4797,7 +4797,7 @@ function SellerListingsPage({
           Accepting an offer on a Sell listing completes the deal and marks it Sold. Borrow
           requests become Lent and giveaway claims become Given. Listings with active offers
           require buyer notification before changes. Sold, Lent, and Given listings are locked for
-          editing but may be deleted with a strong confirmation.
+          editing and deletion.
         </p>
       </div>
 
@@ -4868,23 +4868,20 @@ function SellerListingsPage({
                       <strong>Rejected:</strong> {record.rejectionReason}
                     </div>
                   )}
-                  <div className="seller-listing-actions">
-                    <button
-                      className="listing-edit"
-                      disabled={editLocked}
-                      onClick={() => requestEdit(record)}
-                      title={
-                        editLocked
-                          ? `${record.status} listings are locked for editing`
-                          : "Edit listing"
-                      }
-                    >
-                      {record.status === "Rejected" ? "Edit & resubmit" : "Edit"}
-                    </button>
-                    <button className="listing-delete" onClick={() => requestDelete(record)}>
-                      Delete
-                    </button>
-                  </div>
+                  {!editLocked && (
+                    <div className="seller-listing-actions">
+                      <button
+                        className="listing-edit"
+                        onClick={() => requestEdit(record)}
+                        title="Edit listing"
+                      >
+                        {record.status === "Rejected" ? "Edit & resubmit" : "Edit"}
+                      </button>
+                      <button className="listing-delete" onClick={() => requestDelete(record)}>
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </article>
             );
