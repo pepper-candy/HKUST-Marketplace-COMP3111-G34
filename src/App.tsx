@@ -1399,13 +1399,24 @@ function ChatScreen({
   } | null>(null);
   const currentSender = role === "Seller" ? "seller" : "buyer";
   const sendingCounter = role === "Seller";
-  const canFormalOffer = listing.type !== "Give Away" && (role === "Buyer" || Boolean(activeOfferId));
+  const canFormalOffer =
+    listing.type !== "Give Away" &&
+    ((role === "Buyer" && listing.type !== "Sell") || (role === "Seller" && Boolean(activeOfferId)));
 
   const visibleMessages = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return messages;
-    return messages.filter((message) => message.body.toLowerCase().includes(normalized));
-  }, [messages, query]);
+    return messages.filter((message) => {
+      if (
+        role === "Buyer" &&
+        listing.type === "Sell" &&
+        message.kind === "offer" &&
+        message.sender === "seller"
+      ) {
+        return false;
+      }
+      return !normalized || message.body.toLowerCase().includes(normalized);
+    });
+  }, [listing.type, messages, query, role]);
 
   const sendOptimistic = (message: Omit<ChatMessage, "id" | "time">, kind: "message" | "offer") => {
     if (threadId == null) return;
@@ -1833,12 +1844,21 @@ function ChatScreen({
         )}
 
         <div className="chat-composer">
-          {canFormalOffer && (
+          {role === "Buyer" && listing.type === "Sell" ? (
+            <button
+              className="offer-trigger"
+              disabled={acting}
+              onClick={() => setConfirming({ offerId: null, action: "Buy" })}
+            >
+              <Icon name="bag" size={17} />
+              Buy now · HK${listing.price?.toLocaleString()}
+            </button>
+          ) : canFormalOffer ? (
             <button className="offer-trigger" onClick={() => setOfferOpen(!offerOpen)}>
               <Icon name="bag" size={17} />
               {sendingCounter ? "Send counter" : "Make Offer"}
             </button>
-          )}
+          ) : null}
           <form onSubmit={sendMessage}>
             <input
               value={draft}
