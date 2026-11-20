@@ -2417,6 +2417,16 @@ footer > span {
   padding: 0 12px;
   font-size: 9px;
 }
+.deal-actions .give-review-action {
+  min-width: 190px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 18px;
+  font-size: 10px;
+}
 .deal-text-action {
   display: flex;
   align-items: center;
