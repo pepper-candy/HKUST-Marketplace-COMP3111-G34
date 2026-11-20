@@ -3704,6 +3704,8 @@ type NotificationItem = {
   icon: string;
   tone: "navy" | "gold" | "green" | "red";
   action?: string;
+  listingId?: number;
+  threadId?: number;
 };
 
 function listingFromNotification(message: string, listings: Listing[]) {
@@ -3737,6 +3739,22 @@ function chatTargetFromNotification(
   sellerRequests: SellerRequest[],
   buyerDeals: BuyerDeal[],
 ) {
+  if (item.listingId != null) {
+    const exactListing = listings.find((listing) => listing.id === item.listingId);
+    if (exactListing) {
+      if (role === "Seller") {
+        const request = sellerRequests.find(
+          (entry) =>
+            entry.listing.id === exactListing.id &&
+            (!usernameFromNotification(item, sellerRequests.map((request) => request.buyer)) ||
+              entry.buyer === usernameFromNotification(item, sellerRequests.map((request) => request.buyer))),
+        );
+        if (request) return { listing: exactListing, participant: request.buyer };
+      }
+      return { listing: exactListing, participant: usernameFromNotification(item) };
+    }
+  }
+
   const knownUsernames = [
     ...sellerRequests.map((request) => request.buyer),
     ...buyerDeals.map((deal) => deal.listing.seller),
@@ -3927,6 +3945,15 @@ function NotificationBoard({
                                 event.stopPropagation();
                                 markRead(item.id);
                                 if (item.action === "Open chat") {
+                                  if (item.threadId != null) {
+                                    void api
+                                      .openChatThread(item.threadId)
+                                      .then((found) => {
+                                        if (found) onChatListing(found.listing, found.participant);
+                                      })
+                                      .catch(() => undefined);
+                                    return;
+                                  }
                                   const target = chatTargetFromNotification(
                                     item,
                                     role,
@@ -3945,7 +3972,7 @@ function NotificationBoard({
                                   ]);
                                   if (!username) return;
                                   void api
-                                    .findChatWithUsername(username)
+                                    .findChatWithUsername(username, item.listingId)
                                     .then((found) => {
                                       if (!found) return;
                                       onChatListing(found.listing, found.participant);

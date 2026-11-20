@@ -3,6 +3,40 @@
 -- When a buyer opens an empty chat, seed a seller welcome message only.
 -- Safe to re-run.
 
+ALTER TABLE public.notifications
+  ADD COLUMN IF NOT EXISTS listing_id bigint REFERENCES public.listings (id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS thread_id bigint REFERENCES public.chat_threads (id) ON DELETE SET NULL;
+
+CREATE OR REPLACE FUNCTION public.notify_user(
+  p_user_id uuid,
+  p_category text,
+  p_title text,
+  p_message text,
+  p_icon text DEFAULT 'bell',
+  p_tone text DEFAULT 'navy',
+  p_action text DEFAULT NULL,
+  p_listing_id bigint DEFAULT NULL,
+  p_thread_id bigint DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_user_id IS NULL THEN
+    RETURN;
+  END IF;
+  INSERT INTO public.notifications (
+    user_id, category, title, message, icon, tone, action, listing_id, thread_id
+  )
+  VALUES (
+    p_user_id, p_category, p_title, p_message, p_icon, p_tone,
+    p_action, p_listing_id, p_thread_id
+  );
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.on_chat_message()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -29,7 +63,9 @@ BEGIN
     left(NEW.body, 180),
     'message',
     'navy',
-    'Open chat'
+    'Open chat',
+    v_thread.listing_id,
+    v_thread.id
   );
   RETURN NEW;
 END;
@@ -134,7 +170,9 @@ BEGIN
     format('@%s started a conversation about “%s”.', v_buyer_name, v_listing.title),
     'message',
     'navy',
-    'Open chat'
+    'Open chat',
+    v_listing.id,
+    v_thread_id
   );
 
   RETURN v_thread_id;
