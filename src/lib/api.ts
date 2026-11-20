@@ -910,7 +910,12 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   });
 
   const sellerListingRecords: SellerListingRecord[] = listingRows
-    .filter((row) => row.seller_id === me.id && row.status !== "removed")
+    .filter(
+      (row) =>
+        row.seller_id === me.id &&
+        row.status !== "removed" &&
+        row.status !== "reserved",
+    )
     .map((row) => ({
       id: row.id,
       listing: listingUiById.get(row.id)!,
