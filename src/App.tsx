@@ -2965,8 +2965,13 @@ function SellerRequestsPage({
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const availableRequests = requests.filter(
+    (request) => request.listingStatus === "Available",
+  );
   const visibleRequests =
-    filter === "All" ? requests : requests.filter((request) => request.status === filter);
+    filter === "All"
+      ? availableRequests
+      : availableRequests.filter((request) => request.status === filter);
 
   const updateBuyerDeal = (
     request: SellerRequest,
@@ -3083,7 +3088,7 @@ function SellerRequestsPage({
       .finally(() => setBusy(false));
   };
 
-  const pendingCount = requests.filter((request) => request.status === "Pending").length;
+  const pendingCount = availableRequests.filter((request) => request.status === "Pending").length;
 
   return (
     <section>
@@ -3989,7 +3994,7 @@ type ReviewListing = {
   listing: Listing;
   sellerFullName: string;
   submitted: string;
-  status: "Pending Review" | "Approved" | "Rejected";
+  status: "Pending Review" | "Approved" | "Rejected" | "Removed";
   rejectionReason?: string;
 };
 

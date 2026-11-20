@@ -99,7 +99,7 @@ export type ReviewListing = {
   listing: Listing;
   sellerFullName: string;
   submitted: string;
-  status: "Pending Review" | "Approved" | "Rejected";
+  status: "Pending Review" | "Approved" | "Rejected" | "Removed";
   rejectionReason?: string;
 };
 
@@ -865,7 +865,10 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     .filter((deal): deal is BuyerDeal => Boolean(deal));
 
   const sellerRequests: SellerRequest[] = offers
-    .filter((offer) => listingById.get(offer.listing_id)?.seller_id === me.id)
+    .filter((offer) => {
+      const listing = listingById.get(offer.listing_id);
+      return listing?.seller_id === me.id && listing.status === "live";
+    })
     .map((offer) => {
       const listingRow = listingById.get(offer.listing_id);
       const listing = listingUiById.get(offer.listing_id);
@@ -889,7 +892,13 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   const reviewListings: ReviewListing[] = listingRows.map((row) => {
     const listing = listingUiById.get(row.id)!;
     const status: ReviewListing["status"] =
-      row.status === "rejected" ? "Rejected" : row.status === "pending" ? "Pending Review" : "Approved";
+      row.status === "removed"
+        ? "Removed"
+        : row.status === "rejected"
+          ? "Rejected"
+          : row.status === "pending"
+            ? "Pending Review"
+            : "Approved";
     return {
       id: row.id,
       listing,
