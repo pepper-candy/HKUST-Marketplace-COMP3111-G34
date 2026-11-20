@@ -2219,6 +2219,7 @@ function MyDealsPage({
   onDealsChange,
   onOpenListing,
   onChatListing,
+  onRecordFormalChat,
   onAction,
   onRefresh,
 }: {
@@ -2227,12 +2228,19 @@ function MyDealsPage({
   onDealsChange: (deals: BuyerDeal[]) => void;
   onOpenListing: (listing: Listing) => void;
   onChatListing: (listing: Listing, participant?: string) => void;
+  onRecordFormalChat: (listing: Listing, buyer: string, body: string, offerId?: number) => void;
   onAction: (message: string) => void;
   onRefresh: () => Promise<unknown>;
 }) {
   const [ratingDeal, setRatingDeal] = useState<BuyerDeal | null>(null);
   const [acceptingDealId, setAcceptingDealId] = useState<number | null>(null);
   const [decliningDealId, setDecliningDealId] = useState<number | null>(null);
+  const [counteringDeal, setCounteringDeal] = useState<BuyerDeal | null>(null);
+  const [counterPrice, setCounterPrice] = useState("");
+  const [counterStart, setCounterStart] = useState("");
+  const [counterEnd, setCounterEnd] = useState("");
+  const [counterError, setCounterError] = useState("");
+  const [counterBusyId, setCounterBusyId] = useState<number | null>(null);
   const [deletingChatId, setDeletingChatId] = useState<number | null>(null);
   const [tab, setTab] = useState<"Active" | "Chats" | "Completed">("Active");
   const [chats, setChats] = useState<api.MyChatThread[]>([]);
@@ -2339,6 +2347,56 @@ function MyDealsPage({
     }
   };
 
+  const submitBuyerCounter = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!counteringDeal || counterBusyId !== null) return;
+    setCounterError("");
+
+    let detail = "";
+    if (counteringDeal.kind === "Offer") {
+      if (!Number(counterPrice) || Number(counterPrice) <= 0) {
+        setCounterError("Enter a valid counter price.");
+        return;
+      }
+      detail = api.offerDetailLabel({ type: "Sell", price: Number(counterPrice) });
+    } else if (counteringDeal.kind === "Borrow") {
+      if (!counterStart || !counterEnd || new Date(counterEnd) <= new Date(counterStart)) {
+        setCounterError("Choose a valid start and end period.");
+        return;
+      }
+      detail = api.offerDetailLabel({ type: "Lend", start: counterStart, end: counterEnd });
+    } else {
+      setCounterError("Claims cannot be countered.");
+      return;
+    }
+
+    setCounterBusyId(counteringDeal.id);
+    void api
+      .respondToOffer(counteringDeal.id, "counter", {
+        price: counteringDeal.kind === "Offer" ? Number(counterPrice) : undefined,
+        start: counterStart,
+        end: counterEnd,
+      })
+      .then(() => {
+        onRecordFormalChat(counteringDeal.listing, counteringDeal.listing.seller, detail, counteringDeal.id);
+        onDealsChange(
+          deals.map((item) =>
+            item.id === counteringDeal.id ? { ...item, status: "Countered", detail } : item,
+          ),
+        );
+        onAction(`${counteringDeal.listing.title} counter sent`);
+        setCounteringDeal(null);
+        setCounterPrice("");
+        setCounterStart("");
+        setCounterEnd("");
+        return onRefresh();
+      })
+      .catch((err) =>
+        setCounterError(err instanceof Error ? err.message : "Could not send counter."),
+      )
+      .finally(() => setCounterBusyId(null));
+  };
+
   const dealCard = (deal: BuyerDeal) => (
     <article className={`deal-card ${deal.completed ? "deal-completed" : ""}`} key={deal.id}>
       <button className="deal-image" onClick={() => onOpenListing(deal.listing)}>
@@ -2376,6 +2434,60 @@ function MyDealsPage({
             </span>
           )}
         </div>
+        {counteringDeal?.id === deal.id && (
+          <form className="counter-form" onSubmit={submitBuyerCounter}>
+            <div className="counter-heading">
+              <div>
+                <strong>
+                  Counter {deal.kind === "Offer" ? "price" : "lending period"}
+                </strong>
+                <small>The seller will receive this as a formal counteroffer.</small>
+              </div>
+              <button type="button" onClick={() => setCounteringDeal(null)}>
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+            {deal.kind === "Offer" ? (
+              <label>
+                Counter price
+                <div className="money-input">
+                  <span>HK$</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={counterPrice}
+                    onChange={(event) => setCounterPrice(event.target.value)}
+                    placeholder="Enter amount"
+                    autoFocus
+                  />
+                </div>
+              </label>
+            ) : (
+              <div className="date-fields">
+                <label>
+                  Start date & time
+                  <input
+                    type="datetime-local"
+                    value={counterStart}
+                    onChange={(event) => setCounterStart(event.target.value)}
+                  />
+                </label>
+                <label>
+                  End date & time
+                  <input
+                    type="datetime-local"
+                    value={counterEnd}
+                    onChange={(event) => setCounterEnd(event.target.value)}
+                  />
+                </label>
+              </div>
+            )}
+            {counterError && <p className="form-error">{counterError}</p>}
+            <button className="primary-action counter-submit" disabled={counterBusyId === deal.id}>
+              {counterBusyId === deal.id ? "Sending…" : "Send counter"}
+            </button>
+          </form>
+        )}
         <div className="deal-actions">
           <button className="deal-text-action" onClick={() => onOpenListing(deal.listing)}>
             View listing
@@ -2402,7 +2514,11 @@ function MyDealsPage({
               <button
                 type="button"
                 className="secondary-action"
-                onClick={() => onChatListing(deal.listing)}
+                disabled={counterBusyId === deal.id}
+                onClick={() => {
+                  setCounterError("");
+                  setCounteringDeal(counteringDeal?.id === deal.id ? null : deal);
+                }}
               >
                 Counter
               </button>
@@ -6287,6 +6403,7 @@ function SupportingPage({
         onDealsChange={onBuyerDealsChange}
         onOpenListing={onOpenListing}
         onChatListing={onChatListing}
+        onRecordFormalChat={recordFormalChat}
         onAction={onAction}
         onRefresh={onRefresh}
       />
