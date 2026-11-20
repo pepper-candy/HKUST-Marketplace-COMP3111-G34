@@ -1292,6 +1292,19 @@ export async function declineCounterOffer(offerId: number) {
   if (error) throw new Error(rpcMessage(error));
 }
 
+export async function buyerCounterOffer(
+  offerId: number,
+  counter: { price?: number; start?: string; end?: string },
+) {
+  const { error } = await supabase.rpc("buyer_counter_offer", {
+    p_offer_id: offerId,
+    p_counter_price: counter.price ?? null,
+    p_counter_start: counter.start ? new Date(counter.start).toISOString() : null,
+    p_counter_end: counter.end ? new Date(counter.end).toISOString() : null,
+  });
+  if (error) throw new Error(rpcMessage(error));
+}
+
 export async function returnBorrow(offerId: number) {
   const { error } = await supabase.rpc("return_borrow", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));

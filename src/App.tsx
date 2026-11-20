@@ -1561,7 +1561,7 @@ function ChatScreen({
         return;
       }
       void api
-        .respondToOffer(counterOfferId, "counter", { price, start, end })
+        .buyerCounterOffer(counterOfferId, { price, start, end })
         .then(() => afterOffer(counterOfferId, "Countered"))
         .catch((err) =>
           setOfferError(err instanceof Error ? err.message : "Could not send counter."),
@@ -2372,7 +2372,7 @@ function MyDealsPage({
 
     setCounterBusyId(counteringDeal.id);
     void api
-      .respondToOffer(counteringDeal.id, "counter", {
+      .buyerCounterOffer(counteringDeal.id, {
         price: counteringDeal.kind === "Offer" ? Number(counterPrice) : undefined,
         start: counterStart,
         end: counterEnd,
