@@ -4764,7 +4764,6 @@ function SellerListingsPage({
     "Pending",
     "Live",
     "Rejected",
-    "Reserved",
     "Sold",
     "Lent",
     "Given",
@@ -4795,9 +4794,10 @@ function SellerListingsPage({
       <div className="seller-listing-policy">
         <Icon name="inbox" size={18} />
         <p>
-          Listings with active offers or Reserved status require buyer notification before changes.
-          Sold, Lent, and Given listings are locked for editing but may be deleted with a strong
-          confirmation.
+          Accepting an offer on a Sell listing completes the deal and marks it Sold. Borrow
+          requests become Lent and giveaway claims become Given. Listings with active offers
+          require buyer notification before changes. Sold, Lent, and Given listings are locked for
+          editing but may be deleted with a strong confirmation.
         </p>
       </div>
 
