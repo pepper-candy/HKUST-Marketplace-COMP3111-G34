@@ -1581,7 +1581,7 @@ function ChatScreen({
     if (role === "Seller") {
       if (!activeOfferId && declinedOfferId) {
         void api
-          .respondToOffer(declinedOfferId, "counter", { price, start, end })
+          .sellerSendOffer(declinedOfferId, { price, start, end })
           .then(() => afterOffer(declinedOfferId, "Countered"))
           .catch((err) =>
             setOfferError(err instanceof Error ? err.message : "Could not send offer."),
