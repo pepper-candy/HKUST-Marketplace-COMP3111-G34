@@ -1454,15 +1454,6 @@ function ChatScreen({
   const visibleMessages = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return messages.filter((message) => {
-      if (
-        role === "Buyer" &&
-        listing.type === "Sell" &&
-        message.kind === "offer" &&
-        message.sender === "seller" &&
-        message.offerStatus !== "Countered"
-      ) {
-        return false;
-      }
       return !normalized || message.body.toLowerCase().includes(normalized);
     });
   }, [listing.type, messages, query, role]);
