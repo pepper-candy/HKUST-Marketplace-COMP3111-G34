@@ -1221,9 +1221,39 @@ export async function acceptListingPrice(listing: Listing) {
   if (error) {
     const message = rpcMessage(error);
     if (message.includes("accept_listing_price") && message.includes("schema cache")) {
-      throw new Error(
-        "Buy now is not enabled in the database yet. Run supabase/014_direct_listing_purchase.sql in the Supabase SQL Editor.",
-      );
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) throw new Error("Please sign in again.");
+
+      await supabase.rpc("open_chat_thread", { p_listing_id: listing.id });
+
+      const { data: offers, error: offersError } = await supabase
+        .from("offers")
+        .select("id,status,price,detail")
+        .eq("listing_id", listing.id)
+        .eq("buyer_id", auth.user.id)
+        .in("status", ["pending", "countered"]);
+
+      throwIf(offersError);
+      const listedPriceOffer = (offers ?? []).find((offer) => {
+        if (listing.price == null) return false;
+        const priceMatches = Number(offer.price) === listing.price;
+        const detailMatches =
+          typeof offer.detail === "string" &&
+          offer.detail.toLowerCase().includes(`hk$${listing.price}`);
+        return offer.status === "countered" && (priceMatches || detailMatches);
+      });
+
+      if (!listedPriceOffer) {
+        throw new Error(
+          "This listing could not be purchased directly yet. Refresh and try again.",
+        );
+      }
+
+      const { error: acceptError } = await supabase.rpc("accept_counter_offer", {
+        p_offer_id: listedPriceOffer.id,
+      });
+      if (acceptError) throw new Error(rpcMessage(acceptError));
+      return listedPriceOffer.id;
     }
     throw new Error(message);
   }
