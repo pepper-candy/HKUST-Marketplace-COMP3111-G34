@@ -1458,10 +1458,24 @@ function ChatScreen({
     sellerCounterMessage?.offerId ??
     null;
   const buyerHasSellerCounter = Boolean(sellerCounterMessage);
-  const sendingCounter = role === "Seller" || buyerHasSellerCounter;
+  const declinedOfferId =
+    role === "Seller"
+      ? [...messages].reverse().find(
+          (message) =>
+            message.kind === "offer" &&
+            message.offerId != null &&
+            message.offerStatus === "Declined",
+        )?.offerId ?? null
+      : null;
+  const sendingCounter =
+    role === "Seller" ? activeOfferId != null : buyerHasSellerCounter;
+  const sellerCanSendOffer =
+    role === "Seller" &&
+    activeOfferId == null &&
+    declinedOfferId != null;
   const canFormalOffer =
     listing.type !== "Give Away" &&
-    (role === "Buyer" || (role === "Seller" && Boolean(activeOfferId)));
+    (role === "Buyer" || (role === "Seller" && (Boolean(activeOfferId) || sellerCanSendOffer)));
 
   const visibleMessages = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -1565,6 +1579,16 @@ function ChatScreen({
     };
 
     if (role === "Seller") {
+      if (!activeOfferId && declinedOfferId) {
+        void api
+          .sellerSendOffer(declinedOfferId, { price, start, end })
+          .then(() => afterOffer(declinedOfferId, "Countered"))
+          .catch((err) =>
+            setOfferError(err instanceof Error ? err.message : "Could not send offer."),
+          )
+          .finally(() => setActing(false));
+        return;
+      }
       if (!activeOfferId) {
         setActing(false);
         setOfferError("No pending offer to counter.");
@@ -1903,9 +1927,13 @@ function ChatScreen({
                     ? listing.type === "Sell"
                       ? "Send a counter"
                       : "Counter the lending period"
-                    : listing.type === "Sell"
-                      ? "Make an offer"
-                      : "Request a lending period"}
+                    : role === "Seller"
+                      ? listing.type === "Sell"
+                        ? "Send a new offer"
+                        : "Send a new lending period"
+                      : listing.type === "Sell"
+                        ? "Make an offer"
+                        : "Request a lending period"}
                 </strong>
                 <small>This will be saved as part of the chat history.</small>
               </div>
@@ -1964,9 +1992,11 @@ function ChatScreen({
               <button className="primary-action" disabled={acting}>
                 {sendingCounter
                   ? "Send counter"
-                  : listing.type === "Sell"
+                  : role === "Seller"
                     ? "Send offer"
-                    : "Send request"}
+                    : listing.type === "Sell"
+                      ? "Send offer"
+                      : "Send request"}
               </button>
             </div>
           </form>
@@ -1978,9 +2008,11 @@ function ChatScreen({
               <Icon name="bag" size={17} />
               {sendingCounter
                 ? "Send counter"
-                : listing.type === "Sell"
-                  ? "Send Offer / Bid"
-                  : "Make Offer"}
+                : role === "Seller"
+                  ? "Send Offer"
+                  : listing.type === "Sell"
+                    ? "Send Offer / Bid"
+                    : "Make Offer"}
             </button>
           ) : null}
           <form onSubmit={sendMessage}>
