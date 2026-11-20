@@ -1,2 +1,8 @@
-# AgentPlat packages this default favicon directly from source without LFS hydration.
+# Serve these icons from Git itself. Vercel does not hydrate Git LFS, so
+# LFS pointer files would break the tab icon and "Add to Home Screen".
 favicon.png -filter -diff -merge -text
+favicon.ico -filter -diff -merge -text
+apple-touch-icon.png -filter -diff -merge -text
+icon-192.png -filter -diff -merge -text
+icon-256.png -filter -diff -merge -text
+icon-512.png -filter -diff -merge -text
