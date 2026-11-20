@@ -1460,9 +1460,7 @@ function ChatScreen({
   const sendingCounter = role === "Seller" || buyerHasSellerCounter;
   const canFormalOffer =
     listing.type !== "Give Away" &&
-    ((role === "Buyer" &&
-      (listing.type !== "Sell" || buyerHasSellerCounter)) ||
-      (role === "Seller" && Boolean(activeOfferId)));
+    (role === "Buyer" || (role === "Seller" && Boolean(activeOfferId)));
 
   const visibleMessages = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -1930,19 +1928,14 @@ function ChatScreen({
         )}
 
         <div className="chat-composer">
-          {role === "Buyer" && listing.type === "Sell" ? (
-            <button
-              className="offer-trigger"
-              disabled={acting}
-              onClick={() => setConfirming({ offerId: null, action: "Buy" })}
-            >
-              <Icon name="bag" size={17} />
-              Buy now · HK${listing.price?.toLocaleString()}
-            </button>
-          ) : canFormalOffer ? (
+          {canFormalOffer ? (
             <button className="offer-trigger" onClick={() => setOfferOpen(!offerOpen)}>
               <Icon name="bag" size={17} />
-              {sendingCounter ? "Send counter" : "Make Offer"}
+              {sendingCounter
+                ? "Send counter"
+                : listing.type === "Sell"
+                  ? "Send Offer / Bid"
+                  : "Make Offer"}
             </button>
           ) : null}
           <form onSubmit={sendMessage}>
