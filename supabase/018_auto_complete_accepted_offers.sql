@@ -45,8 +45,14 @@ BEGIN
     IF NOT v_is_seller AND NOT v_is_buyer AND NOT public.is_admin() THEN
       RAISE EXCEPTION 'Only the buyer or seller can counter this request';
     END IF;
-    IF v_offer.status NOT IN ('pending', 'countered') THEN
+    IF v_offer.status NOT IN ('pending', 'countered', 'declined') THEN
       RAISE EXCEPTION 'This request is no longer pending';
+    END IF;
+    IF v_offer.status = 'declined' AND NOT v_is_seller AND NOT public.is_admin() THEN
+      RAISE EXCEPTION 'Only the seller can reopen a declined offer';
+    END IF;
+    IF v_listing.status <> 'live' THEN
+      RAISE EXCEPTION 'This listing is no longer available';
     END IF;
     IF v_offer.kind = 'claim' THEN
       RAISE EXCEPTION 'Claims cannot be countered';
