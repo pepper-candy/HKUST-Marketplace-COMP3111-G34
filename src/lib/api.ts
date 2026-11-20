@@ -616,9 +616,9 @@ function buyerDealStatus(offer: OfferRow, listing: ListingRow) {
   if (offer.status === "declined" || offer.status === "cancelled") return "Declined";
   if (offer.status === "returned") return "Returned";
   if (offer.status === "completed") return "Completed";
-  if (offer.kind === "offer") return listing.status === "sold" ? "Purchased" : "Accepted · Reserved";
+  if (offer.kind === "offer") return "Completed";
   if (offer.kind === "borrow") return "Borrowed";
-  return listing.status === "given" ? "Ready to collect" : "Accepted · Given";
+  return "Completed";
 }
 
 export async function registerAccount(input: {
@@ -848,7 +848,9 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       const listing = listingUiById.get(offer.listing_id);
       if (!listingRow || !listing) return null;
       const status = buyerDealStatus(offer, listingRow);
-      const completed = ["completed", "returned"].includes(offer.status);
+      const completed =
+        ["completed", "returned"].includes(offer.status) ||
+        (offer.status === "accepted" && offer.kind !== "borrow");
       return {
         id: offer.id,
         listing,

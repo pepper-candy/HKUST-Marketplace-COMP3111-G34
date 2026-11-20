@@ -2308,11 +2308,7 @@ function MyDealsPage({
     try {
       await api.acceptCounterOffer(deal.id);
       const acceptedStatus =
-        deal.kind === "Offer"
-          ? "Accepted · Reserved"
-          : deal.kind === "Borrow"
-            ? "Accepted · Lent"
-            : "Accepted · Given";
+        deal.kind === "Borrow" ? "Borrowed" : "Completed";
       onDealsChange(
         deals.map((item) =>
           item.id === deal.id
@@ -2320,6 +2316,7 @@ function MyDealsPage({
                 ...item,
                 status: acceptedStatus,
                 detail: `${item.detail ? `${item.detail} · ` : ""}Buyer accepted the counter offer`,
+                completed: deal.kind !== "Borrow",
               }
             : item,
         ),
@@ -2543,7 +2540,7 @@ function MyDealsPage({
                 Review submitted
               </span>
             ) : (
-              <button className="primary-action" onClick={() => setRatingDeal(deal)}>
+              <button className="primary-action give-review-action" onClick={() => setRatingDeal(deal)}>
                 <Icon name="star" size={15} />
                 Give reviews
               </button>
@@ -2983,14 +2980,17 @@ function SellerRequestsPage({
               ...deal,
               status:
                 status === "Accepted"
-                  ? request.type === "Offer"
-                    ? "Accepted · Reserved"
-                    : request.type === "Borrow"
-                      ? "Accepted · Lent"
-                      : "Accepted · Given"
+                  ? request.type === "Borrow"
+                    ? "Borrowed"
+                    : "Completed"
                   : status,
               detail,
-              completed: status === "Declined",
+              completed:
+                status === "Declined"
+                  ? false
+                  : status === "Accepted"
+                    ? request.type !== "Borrow"
+                    : false,
             }
           : deal,
       ),
