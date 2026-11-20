@@ -1082,6 +1082,25 @@ function DetailModal({
               )}
               {!listingOffers.some((offer) => offer.type !== "Chat") && (
               <div className="detail-actions">
+                {role === "Buyer" && listing.type === "Sell" && (
+                  <button
+                    className="primary-action"
+                    onClick={() => {
+                      setSubmitting(true);
+                      void api
+                        .acceptListingPrice(listing)
+                        .then(() => onAction(`Purchase confirmed for ${listing.title}`))
+                        .catch((err) =>
+                          setFormError(err instanceof Error ? err.message : "Could not buy this item."),
+                        )
+                        .finally(() => setSubmitting(false));
+                    }}
+                    disabled={submitting}
+                  >
+                    {submitting ? "Buying..." : "Buy now"}
+                    <Icon name="arrow" size={18} />
+                  </button>
+                )}
                 <button className="primary-action" onClick={openAction} disabled={submitting}>
                   {submitting
                     ? "Sending..."
@@ -1494,18 +1513,31 @@ function ChatScreen({
     const { offerId, action } = confirming;
     setActing(true);
     const isClaim = listing.type === "Give Away";
-    const request = isClaim
-      ? api.submitListingAction(listing, {})
-      : action === "Accept"
-        ? api.acceptCounterOffer(offerId as number)
-        : api.declineCounterOffer(offerId as number);
+    let request: Promise<unknown>;
+    if (isClaim) {
+      request = api.submitListingAction(listing, {});
+    } else if (action === "Accept" && offerId == null) {
+      request = api.acceptListingPrice(listing);
+    } else if (offerId != null && action === "Accept") {
+      request = api.acceptCounterOffer(offerId);
+    } else if (offerId != null) {
+      request = api.declineCounterOffer(offerId);
+    } else {
+      setActing(false);
+      onAction("This offer is no longer available.");
+      return;
+    }
     void request
       .then(() => onRefresh())
       .then(() => {
         onMessagesChange((current) =>
           current.map((message) =>
             (offerId != null && message.offerId === offerId) ||
-            (isClaim && message.kind === "offer" && message.sender === "seller")
+            (isClaim && message.kind === "offer" && message.sender === "seller") ||
+            (offerId == null &&
+              !isClaim &&
+              message.kind === "offer" &&
+              message.sender === "seller")
               ? {
                   ...message,
                   offerStatus: action === "Accept" ? "Accepted" : "Declined",
@@ -1607,6 +1639,13 @@ function ChatScreen({
                 offerId == null &&
                 offerStatus !== "Accepted" &&
                 offerStatus !== "Declined";
+              const buyerCanBuyAtListedPrice =
+                role === "Buyer" &&
+                listing.type === "Sell" &&
+                message.kind === "offer" &&
+                message.sender === "seller" &&
+                !stale &&
+                offerId == null;
               const buyerCanRespond =
                 role === "Buyer" &&
                 listing.type !== "Give Away" &&
@@ -1663,23 +1702,25 @@ function ChatScreen({
                         </button>
                       </div>
                     )}
-                    {buyerCanRespond && offerId != null && (
+                    {(buyerCanRespond || buyerCanBuyAtListedPrice) && (
                       <div className="chat-offer-buttons">
-                        <button
-                          type="button"
-                          className="request-decline"
-                          disabled={acting}
-                          onClick={() => setConfirming({ offerId, action: "Decline" })}
-                        >
-                          Decline
-                        </button>
+                        {buyerCanRespond && (
+                          <button
+                            type="button"
+                            className="request-decline"
+                            disabled={acting}
+                            onClick={() => setConfirming({ offerId, action: "Decline" })}
+                          >
+                            Decline
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="primary-action"
                           disabled={acting}
-                          onClick={() => setConfirming({ offerId, action: "Accept" })}
+                          onClick={() => setConfirming({ offerId: offerId ?? null, action: "Accept" })}
                         >
-                          Accept
+                          Accept offer
                         </button>
                       </div>
                     )}
@@ -2093,6 +2134,7 @@ function MyDealsPage({
 }) {
   const [ratingDeal, setRatingDeal] = useState<BuyerDeal | null>(null);
   const [acceptingDealId, setAcceptingDealId] = useState<number | null>(null);
+  const [decliningDealId, setDecliningDealId] = useState<number | null>(null);
   const [tab, setTab] = useState<"Active" | "Chats" | "Completed">("Active");
   const [chats, setChats] = useState<api.MyChatThread[]>([]);
   const activeDeals = deals.filter((deal) => {
@@ -2166,6 +2208,20 @@ function MyDealsPage({
     }
   };
 
+  const declineCounter = async (deal: BuyerDeal) => {
+    if (decliningDealId !== null) return;
+    setDecliningDealId(deal.id);
+    try {
+      await api.declineCounterOffer(deal.id);
+      onAction(`${deal.listing.title} counter offer declined`);
+      await onRefresh();
+    } catch (err) {
+      onAction(err instanceof Error ? err.message : "Could not decline counter offer.");
+    } finally {
+      setDecliningDealId(null);
+    }
+  };
+
   const dealCard = (deal: BuyerDeal) => (
     <article className={`deal-card ${deal.completed ? "deal-completed" : ""}`} key={deal.id}>
       <button className="deal-image" onClick={() => onOpenListing(deal.listing)}>
@@ -2217,14 +2273,24 @@ function MyDealsPage({
             </button>
           )}
           {deal.status === "Countered" && !deal.completed && (
-            <button
-              type="button"
-              className="primary-action"
-              disabled={acceptingDealId === deal.id}
-              onClick={() => void acceptCounter(deal)}
-            >
-              {acceptingDealId === deal.id ? "Accepting…" : "Accept Counter"}
-            </button>
+            <>
+              <button
+                type="button"
+                className="request-decline"
+                disabled={decliningDealId === deal.id}
+                onClick={() => void declineCounter(deal)}
+              >
+                {decliningDealId === deal.id ? "Declining…" : "Decline counter"}
+              </button>
+              <button
+                type="button"
+                className="primary-action"
+                disabled={acceptingDealId === deal.id}
+                onClick={() => void acceptCounter(deal)}
+              >
+                {acceptingDealId === deal.id ? "Accepting…" : "Accept offer"}
+              </button>
+            </>
           )}
           {(deal.kind === "Claim" || deal.status.startsWith("Accepted")) &&
             !deal.completed && (
