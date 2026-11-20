@@ -1295,13 +1295,7 @@ export async function sellerSendOffer(
   offerId: number,
   offer: { price?: number; start?: string; end?: string },
 ) {
-  const { error } = await supabase.rpc("seller_send_offer", {
-    p_offer_id: offerId,
-    p_price: offer.price ?? null,
-    p_start: offer.start ? hongKongDateTimeToIso(offer.start) : null,
-    p_end: offer.end ? hongKongDateTimeToIso(offer.end) : null,
-  });
-  if (error) throw new Error(rpcMessage(error));
+  await respondToOffer(offerId, "counter", offer);
 }
 
 export async function acceptCounterOffer(offerId: number) {
