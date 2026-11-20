@@ -934,6 +934,8 @@ BEGIN
       UPDATE public.listings SET status = 'sold' WHERE id = v_listing.id;
     ELSIF v_offer.kind = 'claim' THEN
       UPDATE public.listings SET status = 'given' WHERE id = v_listing.id;
+    ELSE
+      UPDATE public.listings SET status = 'lent' WHERE id = v_listing.id;
     END IF;
 
     SELECT username INTO v_buyer FROM public.profiles WHERE id = v_offer.buyer_id;

@@ -807,7 +807,17 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     profiles.find((profile) => profile.role === "admin");
 
   const liveListings = listingRows
-    .filter((row) => row.status === "live")
+    .filter((row) => {
+      if (row.status !== "live") return false;
+
+      // Do not show a listing while it is reserved, on loan, sold, or given.
+      // This also protects Browse against an old/stale listing status.
+      return !offers.some(
+        (offer) =>
+          offer.listing_id === row.id &&
+          ["accepted", "completed"].includes(offer.status),
+      );
+    })
     .map((row) => listingUiById.get(row.id)!);
 
   const buyerDeals: BuyerDeal[] = offers
@@ -817,7 +827,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       const listing = listingUiById.get(offer.listing_id);
       if (!listingRow || !listing) return null;
       const status = buyerDealStatus(offer, listingRow);
-      const completed = ["completed", "returned", "declined", "cancelled"].includes(offer.status);
+      const completed = ["completed", "returned"].includes(offer.status);
       return {
         id: offer.id,
         listing,
