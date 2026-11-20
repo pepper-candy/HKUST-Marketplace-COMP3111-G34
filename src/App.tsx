@@ -70,6 +70,19 @@ function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   return group.at(-1)?.id !== message.id;
 }
 
+function isInitialOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
+  if (message.kind !== "offer") return false;
+  const earlier = messages
+    .filter((item) =>
+      item.kind === "offer" &&
+      (message.offerId != null
+        ? item.offerId === message.offerId
+        : item.offerId == null)
+    )
+    .findIndex((item) => item.id === message.id);
+  return earlier === 0;
+}
+
 function syncChatOfferStatuses(
   current: Record<number, ChatMessage[]>,
   requests: api.SellerRequest[],
@@ -1717,6 +1730,7 @@ function ChatScreen({
           {visibleMessages.length ? (
             visibleMessages.map((message) => {
               const stale = isStaleOfferBubble(message, messages);
+              const initialOffer = isInitialOfferBubble(message, messages);
               const offerStatus = message.offerStatus ?? "Pending";
               const offerId = message.offerId ?? (stale ? undefined : (activeOfferId ?? undefined));
               const buyerCanClaim =
@@ -1734,7 +1748,7 @@ function ChatScreen({
                 message.kind === "offer" &&
                 message.sender === "seller" &&
                 !stale &&
-                offerStatus === "Countered" &&
+                (initialOffer || offerStatus === "Countered") &&
                 offerId != null;
               return (
               <div
@@ -1769,7 +1783,11 @@ function ChatScreen({
                     </p>
                     {message.kind === "offer" && (
                       <span className="offer-status">
-                        {stale ? "No longer valid" : offerStatus}
+                        {stale
+                          ? "No longer valid"
+                          : initialOffer
+                            ? "Offer"
+                            : offerStatus}
                       </span>
                     )}
                     {buyerCanClaim && (
