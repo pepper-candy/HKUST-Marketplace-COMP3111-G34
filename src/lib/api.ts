@@ -1218,7 +1218,15 @@ export async function acceptListingPrice(listing: Listing) {
   const { data, error } = await supabase.rpc("accept_listing_price", {
     p_listing_id: listing.id,
   });
-  if (error) throw new Error(rpcMessage(error));
+  if (error) {
+    const message = rpcMessage(error);
+    if (message.includes("accept_listing_price") && message.includes("schema cache")) {
+      throw new Error(
+        "Buy now is not enabled in the database yet. Run supabase/014_direct_listing_purchase.sql in the Supabase SQL Editor.",
+      );
+    }
+    throw new Error(message);
+  }
   return data as number;
 }
 

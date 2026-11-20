@@ -52,7 +52,9 @@ For a graded demo the marketplace should not be empty. After `001` (and `002` if
 7. Buyer acceptance of seller counters and buyer decline of seller counters: SQL Editor → paste `supabase/011_buyer_decline_counter.sql` → **Run** (do **not** re-run `001`).
 8. Buyer empty-chat welcome + listing terms: SQL Editor → paste `supabase/012_buyer_chat_welcome.sql` → **Run** (do **not** re-run `001`).
 9. Live offers + notifications (Browse stays manual): SQL Editor → paste `supabase/013_realtime_offers.sql` → **Run** (do **not** re-run `001`). Enable Realtime in the Dashboard if `supabase_realtime` is off. Do **not** add `listings` to the publication.
-10. Log in from `demo/accounts.csv`. Use the **Buyer** or **Seller** portal that matches the row. Usernames have no `@` except admin.
+10. Completed deals hide listings: SQL Editor → paste `supabase/013_completed_deals_hide_listings.sql` → **Run** (do **not** re-run `001`).
+11. Direct fixed-price purchases: SQL Editor → paste `supabase/014_direct_listing_purchase.sql` → **Run** (do **not** re-run `001`). This enables **Buy now**, which accepts the seller’s listed price and reserves the item immediately.
+12. Log in from `demo/accounts.csv`. Use the **Buyer** or **Seller** portal that matches the row. Usernames have no `@` except admin.
 
 Counts (meant to look like a couple of weeks on campus, not a full year):
 
