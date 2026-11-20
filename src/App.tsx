@@ -2215,6 +2215,8 @@ function RateSellersPage({
 
 function MyDealsPage({
   deals,
+  ratedDealIds,
+  onRatedDealIdsChange,
   chatOnlyListingIds,
   onDealsChange,
   onOpenListing,
@@ -2224,6 +2226,8 @@ function MyDealsPage({
   onRefresh,
 }: {
   deals: BuyerDeal[];
+  ratedDealIds: number[];
+  onRatedDealIdsChange: (ids: number[]) => void;
   chatOnlyListingIds: Set<number>;
   onDealsChange: (deals: BuyerDeal[]) => void;
   onOpenListing: (listing: Listing) => void;
@@ -2532,12 +2536,18 @@ function MyDealsPage({
               </button>
             </>
           )}
-          {(deal.kind === "Claim" || deal.status.startsWith("Accepted")) &&
-            !deal.completed && (
+          {deal.completed &&
+            (ratedDealIds.includes(deal.id) ? (
+              <span className="review-submitted-badge">
+                <Icon name="check" size={14} />
+                Review submitted
+              </span>
+            ) : (
               <button className="primary-action" onClick={() => setRatingDeal(deal)}>
-                Mark as Complete
+                <Icon name="star" size={15} />
+                Give reviews
               </button>
-            )}
+            ))}
         </div>
       </div>
     </article>
@@ -2731,6 +2741,7 @@ function MyDealsPage({
               .completeDeal(ratingDeal.id, rating, review)
               .then(() => onRefresh())
               .then(() => {
+                onRatedDealIdsChange([...ratedDealIds, ratingDeal.id]);
                 onAction(`Review submitted for @${ratingDeal.listing.seller}`);
                 setRatingDeal(null);
               })
@@ -6399,6 +6410,8 @@ function SupportingPage({
     return (
       <MyDealsPage
         deals={buyerDealState}
+        ratedDealIds={ratedDealIds}
+        onRatedDealIdsChange={onRatedDealIdsChange}
         chatOnlyListingIds={chatOnlyListingIds}
         onDealsChange={onBuyerDealsChange}
         onOpenListing={onOpenListing}
