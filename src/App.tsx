@@ -1661,25 +1661,12 @@ function ChatScreen({
                 offerId == null &&
                 offerStatus !== "Accepted" &&
                 offerStatus !== "Declined";
-              const listedPriceText = listing.price == null
-                ? ""
-                : `HK$${listing.price}`;
-              const isListedPriceBubble =
-                role === "Buyer" &&
-                listing.type === "Sell" &&
-                message.kind === "offer" &&
-                message.sender === "seller" &&
-                listedPriceText !== "" &&
-                unifyOfferCopy(message.body, listing.type).includes(listedPriceText);
-              const buyerCanBuyAtListedPrice =
-                isListedPriceBubble && !stale && offerStatus !== "Accepted";
               const buyerCanRespond =
                 role === "Buyer" &&
                 listing.type !== "Give Away" &&
                 message.kind === "offer" &&
                 message.sender === "seller" &&
                 !stale &&
-                !isListedPriceBubble &&
                 offerStatus === "Countered" &&
                 offerId != null;
               return (
@@ -1730,7 +1717,7 @@ function ChatScreen({
                         </button>
                       </div>
                     )}
-                    {(buyerCanRespond || buyerCanBuyAtListedPrice) && (
+                    {buyerCanRespond && (
                       <div className="chat-offer-buttons">
                         {buyerCanRespond && (
                           <button
@@ -1746,14 +1733,9 @@ function ChatScreen({
                           type="button"
                           className="primary-action"
                           disabled={acting}
-                          onClick={() =>
-                            setConfirming({
-                              offerId: null,
-                              action: buyerCanBuyAtListedPrice ? "Buy" : "Accept",
-                            })
-                          }
+                          onClick={() => setConfirming({ offerId, action: "Accept" })}
                         >
-                          {buyerCanBuyAtListedPrice ? "Buy now" : "Accept offer"}
+                          Accept offer
                         </button>
                       </div>
                     )}

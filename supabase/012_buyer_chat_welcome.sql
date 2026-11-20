@@ -1,7 +1,6 @@
 -- Run this once in the Supabase SQL Editor (same way as the other supabase/*.sql files).
 -- Follow-up after 001–011. Do not re-run 001.
--- When a buyer opens an empty chat, seed a seller welcome plus the listing terms
--- (price / lending period / giveaway claim) so they can accept right away.
+-- When a buyer opens an empty chat, seed a seller welcome message only.
 -- Safe to re-run.
 
 CREATE OR REPLACE FUNCTION public.on_chat_message()
@@ -47,15 +46,7 @@ DECLARE
   v_buyer uuid;
   v_thread_id bigint;
   v_role text := public.current_profile_role();
-  v_offer_id bigint;
-  v_offer_status text;
-  v_offer_detail text;
-  v_offer_kind text;
   v_welcome text;
-  v_price_text text;
-  v_start timestamptz;
-  v_end timestamptz;
-  v_duration interval;
   v_buyer_name text;
   v_has_messages boolean;
 BEGIN
@@ -113,17 +104,17 @@ BEGIN
 
   IF v_listing.listing_type = 'sell' THEN
     v_welcome := format(
-      'Hi! Thanks for your interest in “%s”. Happy to meet on campus whenever it suits you. The listed price is below — you can accept it now, or send an offer if you had another number in mind.',
+      'Hi! Thanks for your interest in “%s”. Happy to meet on campus whenever it suits you. Send an offer when you are ready to start the deal.',
       v_listing.title
     );
   ELSIF v_listing.listing_type = 'lend' THEN
     v_welcome := format(
-      'Hi! Thanks for your interest in “%s”. You are welcome to borrow it. The default lending period is below — accept it now, or propose different dates.',
+      'Hi! Thanks for your interest in “%s”. You are welcome to borrow it. Send a borrow request when you are ready to start the deal.',
       v_listing.title
     );
   ELSE
     v_welcome := format(
-      'Hi! Thanks for your interest in “%s”. This is a giveaway. Claim it below and we can arrange a quick campus meetup.',
+      'Hi! Thanks for your interest in “%s”. This is a giveaway. Send a claim request when you are ready to start the deal.',
       v_listing.title
     );
   END IF;
@@ -132,41 +123,6 @@ BEGIN
 
   INSERT INTO public.chat_messages (thread_id, sender_id, body, kind)
   VALUES (v_thread_id, v_listing.seller_id, v_welcome, 'message');
-
-  SELECT o.id, o.status, o.detail, o.kind
-  INTO v_offer_id, v_offer_status, v_offer_detail, v_offer_kind
-  FROM public.offers o
-  WHERE o.listing_id = p_listing_id
-    AND o.buyer_id = v_buyer
-    AND o.status IN ('pending', 'countered')
-  ORDER BY CASE WHEN o.status = 'countered' THEN 0 ELSE 1 END, o.updated_at DESC
-  LIMIT 1
-  FOR UPDATE;
-
-  IF v_listing.listing_type = 'giveaway' THEN
-    IF v_offer_id IS NULL THEN
-      INSERT INTO public.chat_messages (thread_id, sender_id, body, kind)
-      VALUES (v_thread_id, v_listing.seller_id, 'Claim: free', 'offer');
-    ELSE
-      INSERT INTO public.chat_messages (thread_id, sender_id, body, kind, offer_id)
-      VALUES (
-        v_thread_id,
-        v_listing.seller_id,
-        coalesce(v_offer_detail, 'Claim: free'),
-        'offer',
-        v_offer_id
-      );
-    END IF;
-  ELSE
-    INSERT INTO public.chat_messages (thread_id, sender_id, body, kind, offer_id)
-    VALUES (
-      v_thread_id,
-      v_listing.seller_id,
-      coalesce(v_offer_detail, 'Offer'),
-      'offer',
-      v_offer_id
-    );
-  END IF;
 
   PERFORM set_config('app.skip_chat_notify', '', true);
 
