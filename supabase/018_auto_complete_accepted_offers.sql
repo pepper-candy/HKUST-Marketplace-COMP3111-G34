@@ -68,7 +68,12 @@ BEGIN
       END IF;
       v_detail := format('Offer: HK$%s', v_price_text);
       UPDATE public.offers
-      SET status = 'countered', price = p_counter_price, detail = v_detail
+      SET status = CASE WHEN v_offer.status = 'declined' AND v_is_seller
+                        THEN 'pending'
+                        ELSE 'countered'
+                   END,
+          price = p_counter_price,
+          detail = v_detail
       WHERE id = p_offer_id;
     ELSE
       IF p_counter_start IS NULL OR p_counter_end IS NULL OR p_counter_end < p_counter_start + interval '5 seconds' THEN
@@ -80,7 +85,13 @@ BEGIN
         to_char(p_counter_end AT TIME ZONE 'Asia/Hong_Kong', 'FMDD Mon YYYY, FMHH12:MI am')
       );
       UPDATE public.offers
-      SET status = 'countered', start_at = p_counter_start, end_at = p_counter_end, detail = v_detail
+      SET status = CASE WHEN v_offer.status = 'declined' AND v_is_seller
+                        THEN 'pending'
+                        ELSE 'countered'
+                   END,
+          start_at = p_counter_start,
+          end_at = p_counter_end,
+          detail = v_detail
       WHERE id = p_offer_id;
     END IF;
 

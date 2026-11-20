@@ -28,6 +28,8 @@ type ListingOfferItem = {
   status: string;
 };
 
+const CHAT_OFFER_DECLINED_MARKER = "__HKUST_OFFER_DECLINED__:";
+
 function unifyOfferCopy(body: string, listingType: Listing["type"]) {
   let text = body
     .replace(/^Proposed price:\s*/i, "Offer: ")
@@ -65,9 +67,14 @@ function chatOffersForListing(
 function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   if (message.kind !== "offer") return false;
   if (message.offerStatus === "Declined") return true;
-  const group = message.offerId
-    ? messages.filter((item) => item.kind === "offer" && item.offerId === message.offerId)
-    : messages.filter((item) => item.kind === "offer");
+  if (
+    messages.some(
+      (item) =>
+        item.kind === "message" &&
+        item.body === `${CHAT_OFFER_DECLINED_MARKER}${message.body}`,
+    )
+  ) return true;
+  const group = messages.filter((item) => item.kind === "offer");
   return group.at(-1)?.id !== message.id;
 }
 
@@ -1441,6 +1448,7 @@ function ChatScreen({
   const [confirming, setConfirming] = useState<{
     offerId: number | null;
     action: "Accept" | "Decline" | "Buy";
+    offerPrice?: number;
   } | null>(null);
   const currentSender = role === "Seller" ? "seller" : "buyer";
   const sellerCounterMessage = role === "Buyer"
@@ -1467,19 +1475,33 @@ function ChatScreen({
             message.offerStatus === "Declined",
         )?.offerId ?? null
       : null;
+  const latestBuyerOfferId =
+    role === "Seller"
+      ? [...messages].reverse().find(
+          (message) =>
+            message.kind === "offer" &&
+            message.sender === "buyer" &&
+            message.offerId != null &&
+            message.offerStatus !== "Declined",
+        )?.offerId ?? null
+      : null;
+  const effectiveSellerOfferId = activeOfferId ?? latestBuyerOfferId;
   const sendingCounter =
-    role === "Seller" ? activeOfferId != null : buyerHasSellerCounter;
+    role === "Buyer" ? buyerHasSellerCounter : false;
   const sellerCanMakeOffer =
     role === "Seller" &&
-    activeOfferId == null &&
+    effectiveSellerOfferId == null &&
     declinedOfferId != null;
   const canFormalOffer =
-    listing.type !== "Give Away" &&
-    (role === "Buyer" || (role === "Seller" && (Boolean(activeOfferId) || sellerCanMakeOffer)));
+    listing.type !== "Give Away";
 
   const visibleMessages = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return messages.filter((message) => {
+      if (
+        message.kind === "message" &&
+        message.body.startsWith(CHAT_OFFER_DECLINED_MARKER)
+      ) return false;
       return !normalized || message.body.toLowerCase().includes(normalized);
     });
   }, [listing.type, messages, query, role]);
@@ -1579,28 +1601,22 @@ function ChatScreen({
     };
 
     if (role === "Seller") {
-      if (!activeOfferId && declinedOfferId) {
-        void api
-          .sellerMakeOffer(declinedOfferId, { price, start, end })
-          .then(() => afterOffer(declinedOfferId, "Pending"))
-          .catch((err) =>
-            setOfferError(err instanceof Error ? err.message : "Could not send offer."),
-          )
-          .finally(() => setActing(false));
-        return;
-      }
-      if (!activeOfferId) {
-        setActing(false);
-        setOfferError("No pending offer to counter.");
-        return;
-      }
-      void api
-        .respondToOffer(activeOfferId, "counter", { price, start, end })
-        .then(() => afterOffer(activeOfferId, "Countered"))
-        .catch((err) =>
-          setOfferError(err instanceof Error ? err.message : "Could not send counter."),
-        )
-        .finally(() => setActing(false));
+      setActing(true);
+      sendOptimistic(
+        {
+          sender: "seller",
+          body,
+          kind: "offer",
+          offerStatus: "Pending",
+        },
+        "offer",
+      );
+      setOfferOpen(false);
+      setOfferPrice("");
+      setStartDate("");
+      setEndDate("");
+      onAction("Offer sent");
+      setActing(false);
       return;
     }
 
@@ -1632,11 +1648,46 @@ function ChatScreen({
 
   const confirmBuyerCounter = () => {
     if (!confirming || acting) return;
-    const { offerId, action } = confirming;
+    const { offerId, action, offerPrice } = confirming;
     setActing(true);
     const isClaim = listing.type === "Give Away";
     let request: Promise<unknown>;
-    if (role === "Seller" && offerId != null && (action === "Accept" || action === "Decline")) {
+    if (role === "Buyer" && action === "Decline" && offerId != null) {
+      const counterOffer = messages.some(
+        (message) =>
+          message.offerId === offerId &&
+          message.sender === "seller" &&
+          message.offerStatus === "Countered",
+      );
+      request = counterOffer
+        ? api.declineCounterOffer(offerId)
+        : api.buyerDeclineOffer(offerId);
+    } else if (role === "Buyer" && action === "Decline") {
+      const declinedMessage = [...messages].reverse().find(
+        (message) =>
+          message.kind === "offer" &&
+          message.sender === "seller" &&
+          message.offerStatus !== "Declined",
+      );
+      if (!declinedMessage) {
+        setActing(false);
+        onAction("This offer is no longer available.");
+        return;
+      }
+      if (threadId == null) {
+        setActing(false);
+        onAction("Could not decline offer.");
+        return;
+      }
+      request = api.sendChatMessage(
+        threadId,
+        `${CHAT_OFFER_DECLINED_MARKER}${declinedMessage.body}`,
+        "message",
+        role,
+      ).then(() => undefined);
+    } else if (role === "Buyer" && offerId == null && action === "Accept" && offerPrice != null) {
+      request = api.submitListingAction(listing, { price: offerPrice });
+    } else if (role === "Seller" && offerId != null && (action === "Accept" || action === "Decline")) {
       request = api.respondToOffer(
         offerId,
         action === "Accept" ? "accept" : "decline",
@@ -1647,8 +1698,6 @@ function ChatScreen({
       request = api.acceptListingPrice(listing);
     } else if (offerId != null && action === "Accept") {
       request = api.acceptCounterOffer(offerId);
-    } else if (offerId != null) {
-      request = api.declineCounterOffer(offerId);
     } else {
       setActing(false);
       onAction("This offer is no longer available.");
@@ -1656,8 +1705,34 @@ function ChatScreen({
     }
     void request
       .then(() => onRefresh())
+      .then(async () => {
+        if (
+          role === "Buyer" &&
+          action === "Decline" &&
+          offerId != null &&
+          threadId != null
+        ) {
+          const offerBody =
+            [...messages].reverse().find(
+              (message) =>
+                message.offerId === offerId &&
+                message.sender === "seller",
+            )?.body;
+          if (offerBody) {
+            await api.sendChatMessage(
+              threadId,
+              `${CHAT_OFFER_DECLINED_MARKER}${offerBody}`,
+              "message",
+              role,
+            );
+          }
+        }
+      })
       .then(() => {
         onFormalOfferSubmitted(listing.id);
+        if (role === "Buyer" && action === "Decline") {
+          onAction("Offer declined");
+        }
         onMessagesChange((current) =>
           current.map((message) =>
             (offerId != null && message.offerId === offerId) ||
@@ -1668,7 +1743,12 @@ function ChatScreen({
               message.sender === "seller")
               ? {
                   ...message,
-                  offerStatus: action === "Decline" ? "Declined" : "Accepted",
+                  offerStatus:
+                    action === "Decline"
+                      ? "Declined"
+                      : offerPrice != null
+                        ? "Pending"
+                        : "Accepted",
                 }
               : message,
           ),
@@ -1761,6 +1841,10 @@ function ChatScreen({
               const initialOffer = isInitialOfferBubble(message, messages);
               const offerStatus = message.offerStatus ?? "Pending";
               const offerId = message.offerId ?? (stale ? undefined : (activeOfferId ?? undefined));
+              const latestOfferMessage = [...messages].reverse().find(
+                (item) => item.kind === "offer",
+              );
+              const isLatestOffer = latestOfferMessage?.id === message.id;
               const buyerCanClaim =
                 role === "Buyer" &&
                 listing.type === "Give Away" &&
@@ -1776,16 +1860,17 @@ function ChatScreen({
                 message.kind === "offer" &&
                 message.sender === "seller" &&
                 !stale &&
-                (initialOffer || offerStatus === "Countered") &&
-                offerId != null;
+                isLatestOffer &&
+                offerStatus !== "Accepted" &&
+                offerStatus !== "Declined";
               const sellerCanRespond =
                 role === "Seller" &&
                 listing.type !== "Give Away" &&
                 message.kind === "offer" &&
                 message.sender === "buyer" &&
                 !stale &&
-                (offerStatus === "Pending" || offerStatus === "Countered") &&
-                offerId != null;
+                isLatestOffer &&
+                (offerStatus === "Pending" || offerStatus === "Countered");
               return (
               <div
                 className={`message-row ${message.sender === currentSender ? "mine" : "theirs"}`}
@@ -1863,7 +1948,16 @@ function ChatScreen({
                           type="button"
                           className="primary-action"
                           disabled={acting}
-                          onClick={() => setConfirming({ offerId, action: "Accept" })}
+                          onClick={() => {
+                            const offerPrice = listing.type === "Sell"
+                              ? Number((message.body.match(/HK\$\s*([\d,.]+)/)?.[1] ?? "").replace(/,/g, ""))
+                              : undefined;
+                            setConfirming({
+                              offerId,
+                              action: "Accept",
+                              ...(offerId == null && offerPrice > 0 ? { offerPrice } : {}),
+                            });
+                          }}
                         >
                           Accept offer
                         </button>
@@ -1923,17 +2017,13 @@ function ChatScreen({
               <div>
                 <span>FORMAL ACTION</span>
                 <strong>
-                  {sendingCounter
+                  {role === "Seller"
                     ? listing.type === "Sell"
-                      ? "Send a counter"
-                      : "Counter the lending period"
-                    : role === "Seller"
-                          ? listing.type === "Sell"
-                            ? "Make an offer"
-                            : "Make a lending offer"
-                      : listing.type === "Sell"
-                        ? "Make an offer"
-                        : "Request a lending period"}
+                      ? "Make an offer"
+                      : "Make a lending offer"
+                    : listing.type === "Sell"
+                      ? "Make an offer"
+                      : "Request a lending period"}
                 </strong>
                 <small>This will be saved as part of the chat history.</small>
               </div>
@@ -1990,13 +2080,11 @@ function ChatScreen({
                 Cancel
               </button>
               <button className="primary-action" disabled={acting}>
-                {sendingCounter
-                  ? "Send counter"
-                  : role === "Seller"
-                    ? "Make offer"
-                    : listing.type === "Sell"
-                      ? "Send offer"
-                      : "Send request"}
+                {role === "Seller"
+                  ? "Make offer"
+                  : listing.type === "Sell"
+                    ? "Send offer"
+                    : "Send request"}
               </button>
             </div>
           </form>
@@ -2006,13 +2094,11 @@ function ChatScreen({
           {canFormalOffer ? (
             <button className="offer-trigger" onClick={() => setOfferOpen(!offerOpen)}>
               <Icon name="bag" size={17} />
-              {sendingCounter
-                ? "Send counter"
-                : role === "Seller"
-                  ? "Make an Offer"
-                  : listing.type === "Sell"
-                    ? "Send Offer / Bid"
-                    : "Make Offer"}
+              {role === "Seller"
+                ? "Make an Offer"
+                : listing.type === "Sell"
+                  ? "Send Offer / Bid"
+                  : "Make Offer"}
             </button>
           ) : null}
           <form onSubmit={sendMessage}>
@@ -2352,7 +2438,12 @@ function MyDealsPage({
   const [chats, setChats] = useState<api.MyChatThread[]>([]);
   const activeDeals = deals.filter((deal) => {
     if (chatOnlyListingIds.has(deal.listing.id)) return false;
-    if (deal.completed || deal.status === "Declined") return false;
+    if (
+      deal.completed ||
+      deal.status === "Declined" ||
+      deal.status === "Cancelled" ||
+      deal.status === "Returned"
+    ) return false;
     if (
       (deal.status === "Pending" || deal.status === "Countered") &&
       deal.listing.availability &&
