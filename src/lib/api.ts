@@ -1302,7 +1302,29 @@ export async function buyerCounterOffer(
     p_counter_start: counter.start ? new Date(counter.start).toISOString() : null,
     p_counter_end: counter.end ? new Date(counter.end).toISOString() : null,
   });
-  if (error) throw new Error(rpcMessage(error));
+  if (!error) return;
+
+  const dedicatedMissing =
+    error.code === "PGRST202" ||
+    /could not find the function|schema cache/i.test(error.message);
+  if (!dedicatedMissing) throw new Error(rpcMessage(error));
+
+  const { data: offer, error: offerError } = await supabase
+    .from("offers")
+    .select("listing_id,kind")
+    .eq("id", offerId)
+    .single();
+  if (offerError) throw new Error(rpcMessage(offerError));
+
+  const kind = offer.kind === "borrow" ? "borrow" : "offer";
+  const { error: fallbackError } = await supabase.rpc("create_offer", {
+    p_listing_id: offer.listing_id,
+    p_kind: kind,
+    p_price: counter.price ?? null,
+    p_start_at: counter.start ? new Date(counter.start).toISOString() : null,
+    p_end_at: counter.end ? new Date(counter.end).toISOString() : null,
+  });
+  if (fallbackError) throw new Error(rpcMessage(fallbackError));
 }
 
 export async function returnBorrow(offerId: number) {
