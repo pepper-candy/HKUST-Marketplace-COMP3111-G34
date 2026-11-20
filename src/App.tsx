@@ -6403,7 +6403,7 @@ function SupportingPage({
         onDealsChange={onBuyerDealsChange}
         onOpenListing={onOpenListing}
         onChatListing={onChatListing}
-        onRecordFormalChat={recordFormalChat}
+        onRecordFormalChat={onRecordFormalChat}
         onAction={onAction}
         onRefresh={onRefresh}
       />
