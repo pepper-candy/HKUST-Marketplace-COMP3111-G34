@@ -1469,13 +1469,13 @@ function ChatScreen({
       : null;
   const sendingCounter =
     role === "Seller" ? activeOfferId != null : buyerHasSellerCounter;
-  const sellerCanSendOffer =
+  const sellerCanMakeOffer =
     role === "Seller" &&
     activeOfferId == null &&
     declinedOfferId != null;
   const canFormalOffer =
     listing.type !== "Give Away" &&
-    (role === "Buyer" || (role === "Seller" && (Boolean(activeOfferId) || sellerCanSendOffer)));
+    (role === "Buyer" || (role === "Seller" && (Boolean(activeOfferId) || sellerCanMakeOffer)));
 
   const visibleMessages = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -1581,8 +1581,8 @@ function ChatScreen({
     if (role === "Seller") {
       if (!activeOfferId && declinedOfferId) {
         void api
-          .sellerSendOffer(declinedOfferId, { price, start, end })
-          .then(() => afterOffer(declinedOfferId, "Countered"))
+          .sellerMakeOffer(declinedOfferId, { price, start, end })
+          .then(() => afterOffer(declinedOfferId, "Pending"))
           .catch((err) =>
             setOfferError(err instanceof Error ? err.message : "Could not send offer."),
           )
@@ -1928,9 +1928,9 @@ function ChatScreen({
                       ? "Send a counter"
                       : "Counter the lending period"
                     : role === "Seller"
-                      ? listing.type === "Sell"
-                        ? "Send a new offer"
-                        : "Send a new lending period"
+                          ? listing.type === "Sell"
+                            ? "Make an offer"
+                            : "Make a lending offer"
                       : listing.type === "Sell"
                         ? "Make an offer"
                         : "Request a lending period"}
@@ -1993,7 +1993,7 @@ function ChatScreen({
                 {sendingCounter
                   ? "Send counter"
                   : role === "Seller"
-                    ? "Send offer"
+                    ? "Make offer"
                     : listing.type === "Sell"
                       ? "Send offer"
                       : "Send request"}
@@ -2009,7 +2009,7 @@ function ChatScreen({
               {sendingCounter
                 ? "Send counter"
                 : role === "Seller"
-                  ? "Send Offer"
+                  ? "Make an Offer"
                   : listing.type === "Sell"
                     ? "Send Offer / Bid"
                     : "Make Offer"}

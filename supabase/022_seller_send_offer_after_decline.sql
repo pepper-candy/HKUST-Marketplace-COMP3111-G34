@@ -1,7 +1,7 @@
--- Lets a seller send a new offer after the buyer declined the previous one.
+-- Lets a seller make a new offer after the buyer declined the previous one.
 -- Safe to re-run.
 
-CREATE OR REPLACE FUNCTION public.seller_send_offer_after_decline(
+CREATE OR REPLACE FUNCTION public.seller_make_offer_after_decline(
   p_offer_id bigint,
   p_price numeric DEFAULT NULL,
   p_start_at timestamptz DEFAULT NULL,
@@ -60,7 +60,7 @@ BEGIN
     END IF;
     v_detail := format('Offer: HK$%s', v_price_text);
     UPDATE public.offers
-    SET status = 'countered', price = p_price, detail = v_detail
+    SET status = 'pending', price = p_price, detail = v_detail
     WHERE id = p_offer_id;
   ELSE
     IF p_start_at IS NULL OR p_end_at IS NULL
@@ -73,7 +73,7 @@ BEGIN
       to_char(p_end_at AT TIME ZONE 'Asia/Hong_Kong', 'FMDD Mon YYYY, FMHH12:MI am')
     );
     UPDATE public.offers
-    SET status = 'countered', start_at = p_start_at, end_at = p_end_at, detail = v_detail
+    SET status = 'pending', start_at = p_start_at, end_at = p_end_at, detail = v_detail
     WHERE id = p_offer_id;
   END IF;
 
@@ -88,5 +88,5 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.seller_send_offer_after_decline(bigint, numeric, timestamptz, timestamptz)
+GRANT EXECUTE ON FUNCTION public.seller_make_offer_after_decline(bigint, numeric, timestamptz, timestamptz)
   TO authenticated;

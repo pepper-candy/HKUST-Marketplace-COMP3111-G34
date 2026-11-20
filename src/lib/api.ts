@@ -1291,11 +1291,11 @@ export async function respondToOffer(
   if (error) throw new Error(rpcMessage(error));
 }
 
-export async function sellerSendOffer(
+export async function sellerMakeOffer(
   offerId: number,
   offer: { price?: number; start?: string; end?: string },
 ) {
-  const { error } = await supabase.rpc("seller_send_offer_after_decline", {
+  const { error } = await supabase.rpc("seller_make_offer_after_decline", {
     p_offer_id: offerId,
     p_price: offer.price ?? null,
     p_start_at: offer.start ? hongKongDateTimeToIso(offer.start) : null,
