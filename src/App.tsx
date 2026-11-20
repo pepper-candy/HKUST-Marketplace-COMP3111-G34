@@ -1612,7 +1612,12 @@ function ChatScreen({
     setActing(true);
     const isClaim = listing.type === "Give Away";
     let request: Promise<unknown>;
-    if (isClaim) {
+    if (role === "Seller" && offerId != null && (action === "Accept" || action === "Decline")) {
+      request = api.respondToOffer(
+        offerId,
+        action === "Accept" ? "accept" : "decline",
+      );
+    } else if (isClaim) {
       request = api.submitListingAction(listing, {});
     } else if ((action === "Buy" || action === "Accept") && offerId == null) {
       request = api.acceptListingPrice(listing);
@@ -1749,6 +1754,14 @@ function ChatScreen({
                 !stale &&
                 (initialOffer || offerStatus === "Countered") &&
                 offerId != null;
+              const sellerCanRespond =
+                role === "Seller" &&
+                listing.type !== "Give Away" &&
+                message.kind === "offer" &&
+                message.sender === "buyer" &&
+                !stale &&
+                (offerStatus === "Pending" || offerStatus === "Countered") &&
+                offerId != null;
               return (
               <div
                 className={`message-row ${message.sender === currentSender ? "mine" : "theirs"}`}
@@ -1802,6 +1815,37 @@ function ChatScreen({
                       </div>
                     )}
                     {buyerCanRespond && (
+                      <div className="chat-offer-buttons">
+                        <button
+                          type="button"
+                          className="request-decline"
+                          disabled={acting}
+                          onClick={() => setConfirming({ offerId, action: "Decline" })}
+                        >
+                          Decline
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-action"
+                          disabled={acting}
+                          onClick={() => {
+                            setOfferError("");
+                            setOfferOpen(true);
+                          }}
+                        >
+                          Counter
+                        </button>
+                        <button
+                          type="button"
+                          className="primary-action"
+                          disabled={acting}
+                          onClick={() => setConfirming({ offerId, action: "Accept" })}
+                        >
+                          Accept offer
+                        </button>
+                      </div>
+                    )}
+                    {sellerCanRespond && (
                       <div className="chat-offer-buttons">
                         <button
                           type="button"
