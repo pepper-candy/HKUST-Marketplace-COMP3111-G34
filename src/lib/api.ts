@@ -759,7 +759,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
 
   await supabase.rpc("expire_overdue_borrows");
 
-  const [profilesRes, listingsRes, offersRes, ratingsRes, notificationsRes] = await Promise.all([
+  const [profilesRes, listingsRes, offersRes, ratingsRes, notificationsRes, offerMessagesRes] = await Promise.all([
     supabase.from("profiles").select("*"),
     supabase.from("listings").select("*").order("created_at", { ascending: false }),
     supabase.from("offers").select("*").order("created_at", { ascending: false }),
@@ -769,6 +769,9 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("chat_messages")
+      .select("offer_id, sender_id, kind"),
   ]);
 
   throwIf(profilesRes.error);
@@ -776,6 +779,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   throwIf(offersRes.error);
   throwIf(ratingsRes.error);
   throwIf(notificationsRes.error);
+  throwIf(offerMessagesRes.error);
 
   const profiles = (profilesRes.data ?? []) as ProfileRow[];
   const listingRows = (listingsRes.data ?? []) as ListingRow[];
@@ -784,6 +788,12 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   const notificationRows = (notificationsRes.data ?? []) as NotificationRow[];
   const me = profiles.find((profile) => profile.id === user.id);
   if (!me) throw new Error("Profile was not found for this account.");
+  const buyerOfferMessageIds = new Set(
+    (offerMessagesRes.data ?? [])
+      .filter((message) => message.kind === "offer" && message.sender_id === me.id)
+      .map((message) => Number(message.offer_id))
+      .filter((offerId) => Number.isFinite(offerId)),
+  );
 
   const listings = listingRows.map((row) => mapListing(row, profiles, ratings));
   const listingById = new Map(listingRows.map((row) => [row.id, row]));
@@ -821,7 +831,18 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     .map((row) => listingUiById.get(row.id)!);
 
   const buyerDeals: BuyerDeal[] = offers
-    .filter((offer) => offer.buyer_id === me.id)
+    .filter((offer) => {
+      if (offer.buyer_id !== me.id) return false;
+      const listingRow = listingById.get(offer.listing_id);
+      if (
+        listingRow?.listing_type === "sell" &&
+        offer.status === "countered" &&
+        !buyerOfferMessageIds.has(offer.id)
+      ) {
+        return false;
+      }
+      return true;
+    })
     .map((offer): BuyerDeal | null => {
       const listingRow = listingById.get(offer.listing_id);
       const listing = listingUiById.get(offer.listing_id);
@@ -1171,6 +1192,27 @@ export async function submitListingAction(
   });
   if (error) throw new Error(rpcMessage(error));
   return data as number;
+}
+
+export async function postOfferChatIfBuyerThread(
+  listingId: number,
+  body: string,
+  offerId: number,
+) {
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
+    const { data: thread } = await supabase
+      .from("chat_threads")
+      .select("id")
+      .eq("listing_id", listingId)
+      .eq("buyer_id", auth.user.id)
+      .maybeSingle();
+    if (!thread?.id) return;
+    await sendChatMessage(thread.id, body, "offer", "Buyer", offerId);
+  } catch {
+    /* The offer row is already saved; chat sync must not fail the submit. */
+  }
 }
 
 export async function respondToOffer(

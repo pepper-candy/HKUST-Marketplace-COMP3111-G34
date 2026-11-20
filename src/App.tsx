@@ -46,9 +46,13 @@ function chatOffersForListing(
   listing: Listing,
   messages: ChatMessage[],
   buyerName: string,
+  role: Role,
 ): ListingOfferItem[] {
   return messages
-    .filter((message) => message.kind === "offer")
+    .filter((message) =>
+      message.kind === "offer" &&
+      (role !== "Buyer" || message.sender === "buyer")
+    )
     .map((message) => ({
       id: message.offerId ?? `chat-${message.id}`,
       buyer: buyerName || (message.sender === "buyer" ? "buyer" : listing.seller),
@@ -605,11 +609,14 @@ function DetailModal({
         start: startDate,
         end: endDate,
       })
-      .then(() => {
+      .then((offerId) => {
         const detail =
           listing.type === "Sell"
             ? api.offerDetailLabel({ type: "Sell", price: Number(offerPrice) })
             : api.offerDetailLabel({ type: "Lend", start: startDate, end: endDate });
+        if (typeof offerId === "number") {
+          void api.postOfferChatIfBuyerThread(listing.id, detail, offerId);
+        }
         const message =
           listing.type === "Sell"
             ? `${detail} sent to @${listing.seller}`
@@ -7273,6 +7280,7 @@ export default function App() {
                 ? chatCounterparty
                 : ""
               : currentUsername,
+            role,
           ),
         ),
         listingChatPeople,
