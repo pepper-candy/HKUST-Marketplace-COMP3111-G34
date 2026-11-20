@@ -1253,6 +1253,12 @@ export async function acceptListingPrice(listing: Listing) {
         p_offer_id: listedPriceOffer.id,
       });
       if (acceptError) throw new Error(rpcMessage(acceptError));
+      const { error: completeError } = await supabase.rpc("complete_deal", {
+        p_offer_id: listedPriceOffer.id,
+        p_stars: null,
+        p_review: null,
+      });
+      if (completeError) throw new Error(rpcMessage(completeError));
       return listedPriceOffer.id;
     }
     throw new Error(message);

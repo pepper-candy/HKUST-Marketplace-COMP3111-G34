@@ -35,9 +35,12 @@ BEGIN
     RAISE EXCEPTION 'You cannot buy your own listing';
   END IF;
 
-  INSERT INTO public.offers (listing_id, buyer_id, kind, status, price, detail)
-  VALUES (p_listing_id, auth.uid(), 'offer', 'accepted', v_listing.price,
-          format('Offer: HK$%s', trim(to_char(v_listing.price, 'FM999999999990.00'))))
+  INSERT INTO public.offers (
+    listing_id, buyer_id, kind, status, price, detail, completed_at
+  )
+  VALUES (p_listing_id, auth.uid(), 'offer', 'completed', v_listing.price,
+          format('Offer: HK$%s', trim(to_char(v_listing.price, 'FM999999999990.00'))),
+          now())
   RETURNING id INTO v_offer_id;
 
   UPDATE public.offers
@@ -46,12 +49,12 @@ BEGIN
   WHERE listing_id = p_listing_id
     AND id <> v_offer_id
     AND status IN ('pending', 'countered');
-  UPDATE public.listings SET status = 'reserved' WHERE id = p_listing_id;
+  UPDATE public.listings SET status = 'sold' WHERE id = p_listing_id;
 
   SELECT username INTO v_buyer FROM public.profiles WHERE id = auth.uid();
   PERFORM public.notify_user(
     v_listing.seller_id, 'Offer', 'Listing purchased',
-    format('@%s bought “%s” at the listed price. Listing is now reserved.', v_buyer, v_listing.title),
+    format('@%s bought “%s” at the listed price. The sale is complete.', v_buyer, v_listing.title),
     'check', 'green', 'View listing'
   );
   RETURN v_offer_id;
