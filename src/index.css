@@ -3325,11 +3325,7 @@ footer > span {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: conic-gradient(
-    var(--navy) 0deg 201.6deg,
-    var(--gold) 201.6deg 302.4deg,
-    #7fa491 302.4deg 360deg
-  );
+  background: #edf0f2;
   box-shadow: 0 7px 20px rgba(19, 48, 75, 0.12);
 }
 .donut-chart > div {

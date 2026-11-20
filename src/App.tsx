@@ -107,6 +107,28 @@ function mergeListingOffers(primary: ListingOfferItem[], extra: ListingOfferItem
   return latestOffersByBuyer([...extra, ...primary]);
 }
 
+const dealToneColors: Record<string, string> = {
+  sold: "var(--navy)",
+  lent: "var(--gold)",
+  given: "#7fa491",
+};
+
+function dealsDonutBackground(items: api.SellerStats["dealsByType"]) {
+  const total = items.reduce((sum, item) => sum + item.count, 0);
+  if (total === 0) return "#edf0f2";
+
+  let start = 0;
+  const segments = items
+    .filter((item) => item.count > 0)
+    .map((item) => {
+      const end = start + (item.count / total) * 360;
+      const segment = `${dealToneColors[item.tone] ?? "var(--navy)"} ${start}deg ${end}deg`;
+      start = end;
+      return segment;
+    });
+  return `conic-gradient(${segments.join(", ")})`;
+}
+
 function withListingChatPeople(
   offers: ListingOfferItem[],
   people: { id: string; buyer: string; lastMessage: string }[],
@@ -6438,6 +6460,11 @@ function SupportingPage({
     title: page,
     subtitle: `Manage your ${role.toLowerCase()} activity.`,
   };
+  const dealChartTotal = sellerStats.dealsByType.reduce(
+    (sum, item) => sum + item.count,
+    0,
+  );
+  const dealChartBackground = dealsDonutBackground(sellerStats.dealsByType);
 
   if (page === "My Deals") {
     return (
@@ -6670,23 +6697,24 @@ function SupportingPage({
                 <h3>Deals by type</h3>
                 <p>Completed marketplace deals</p>
               </div>
-              <span className="chart-total-label">{sellerStats.completed} total</span>
+              <span className="chart-total-label">{dealChartTotal} total</span>
             </div>
             <div className="donut-chart-wrap">
               <div
                 className="donut-chart"
                 role="img"
                 aria-label={`Deals by type: ${sellerStats.dealsByType.map((item) => `${item.count} ${item.label}`).join(", ")}`}
+                style={{ background: dealChartBackground }}
               >
                 <div>
-                  <strong>{sellerStats.completed}</strong>
+                  <strong>{dealChartTotal}</strong>
                   <span>DEALS</span>
                 </div>
               </div>
               <div className="donut-legend">
                 {sellerStats.dealsByType.map((item) => {
-                  const percentage = sellerStats.completed
-                    ? `${Math.round((item.count / sellerStats.completed) * 100)}%`
+                  const percentage = dealChartTotal
+                    ? `${Math.round((item.count / dealChartTotal) * 100)}%`
                     : "0%";
                   const label = item.label;
                   const count = String(item.count);
