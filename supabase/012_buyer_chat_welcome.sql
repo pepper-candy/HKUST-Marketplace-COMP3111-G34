@@ -104,7 +104,7 @@ BEGIN
 
   IF v_listing.listing_type = 'sell' THEN
     v_welcome := format(
-      'Hi! Thanks for your interest in “%s”. Happy to meet on campus whenever it suits you. Send an offer when you are ready to start the deal.',
+      'Hi! Thanks for your interest in “%s”. Happy to meet on campus whenever it suits you. You can buy now at the listed price whenever you are ready.',
       v_listing.title
     );
   ELSIF v_listing.listing_type = 'lend' THEN
