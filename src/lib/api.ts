@@ -1361,6 +1361,11 @@ export async function markNotificationsRead(ids: number[]) {
   if (error) throw new Error(rpcMessage(error));
 }
 
+export async function deleteChatThread(threadId: number) {
+  const { error } = await supabase.rpc("delete_chat_thread", { p_thread_id: threadId });
+  if (error) throw new Error(rpcMessage(error));
+}
+
 export async function listMyChatThreads(): Promise<MyChatThread[]> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return [];

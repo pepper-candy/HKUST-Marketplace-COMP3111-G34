@@ -2160,6 +2160,7 @@ function MyDealsPage({
   const [ratingDeal, setRatingDeal] = useState<BuyerDeal | null>(null);
   const [acceptingDealId, setAcceptingDealId] = useState<number | null>(null);
   const [decliningDealId, setDecliningDealId] = useState<number | null>(null);
+  const [deletingChatId, setDeletingChatId] = useState<number | null>(null);
   const [tab, setTab] = useState<"Active" | "Chats" | "Completed">("Active");
   const [chats, setChats] = useState<api.MyChatThread[]>([]);
   const activeDeals = deals.filter((deal) => {
@@ -2189,6 +2190,23 @@ function MyDealsPage({
       cancelled = true;
     };
   }, [deals]);
+
+  const deleteChat = async (thread: api.MyChatThread) => {
+    if (deletingChatId !== null) return;
+    if (!window.confirm(`Delete the chat with @${thread.counterparty} about "${thread.listing.title}"?`)) {
+      return;
+    }
+    setDeletingChatId(thread.id);
+    try {
+      await api.deleteChatThread(thread.id);
+      setChats((current) => current.filter((chat) => chat.id !== thread.id));
+      onAction("Chat deleted");
+    } catch (err) {
+      onAction(err instanceof Error ? err.message : "Could not delete chat.");
+    } finally {
+      setDeletingChatId(null);
+    }
+  };
 
   const markReturned = (deal: BuyerDeal) => {
     void api
@@ -2459,6 +2477,15 @@ function MyDealsPage({
                         onClick={() => onChatListing(thread.listing, thread.counterparty)}
                       >
                         <Icon name="message" size={15} /> Open chat
+                      </button>
+                      <span />
+                      <button
+                        type="button"
+                        className="request-decline"
+                        disabled={deletingChatId === thread.id}
+                        onClick={() => void deleteChat(thread)}
+                      >
+                        {deletingChatId === thread.id ? "Deleting…" : "Delete chat"}
                       </button>
                     </div>
                   </div>
