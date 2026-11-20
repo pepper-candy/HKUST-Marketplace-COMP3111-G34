@@ -2040,6 +2040,7 @@ footer > span {
 .detail-actions {
   display: flex;
   gap: 8px;
+  margin-top: 12px;
 }
 .detail-actions button {
   height: 43px;
