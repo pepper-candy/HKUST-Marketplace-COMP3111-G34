@@ -263,8 +263,8 @@ function Logo() {
   );
 }
 
-function isUsableListingPhoto(src?: string) {
-  return Boolean(src) && !src.startsWith("data:image/svg");
+function isUsableListingPhoto(src?: string): src is string {
+  return typeof src === "string" && src.length > 0 && !src.startsWith("data:image/svg");
 }
 
 function ListingPhoto({
@@ -279,12 +279,13 @@ function ListingPhoto({
   onError?: () => void;
 }) {
   const [failed, setFailed] = useState(false);
+  const usableSrc = isUsableListingPhoto(src) && !failed ? src : null;
 
   useEffect(() => {
     setFailed(false);
   }, [src]);
 
-  if (!isUsableListingPhoto(src) || failed) {
+  if (!usableSrc) {
     return (
       <div className="listing-photo-empty" role="img" aria-label="No preview available.">
         <span>No preview available.</span>
@@ -294,7 +295,7 @@ function ListingPhoto({
 
   return (
     <img
-      src={src}
+      src={usableSrc}
       alt={alt}
       onLoad={onLoad}
       onError={() => {
@@ -2094,7 +2095,17 @@ function MyDealsPage({
   const [acceptingDealId, setAcceptingDealId] = useState<number | null>(null);
   const [tab, setTab] = useState<"Active" | "Chats" | "Completed">("Active");
   const [chats, setChats] = useState<api.MyChatThread[]>([]);
-  const activeDeals = deals.filter((deal) => !deal.completed);
+  const activeDeals = deals.filter((deal) => {
+    if (deal.completed || deal.status === "Declined") return false;
+    if (
+      (deal.status === "Pending" || deal.status === "Countered") &&
+      deal.listing.availability &&
+      deal.listing.availability !== "Available"
+    ) {
+      return false;
+    }
+    return true;
+  });
   const completedDeals = deals.filter((deal) => deal.completed);
 
   useEffect(() => {
@@ -2215,8 +2226,7 @@ function MyDealsPage({
               {acceptingDealId === deal.id ? "Accepting…" : "Accept Counter"}
             </button>
           )}
-          {(deal.kind === "Claim" ||
-            (deal.kind !== "Claim" && deal.status.startsWith("Accepted"))) &&
+          {(deal.kind === "Claim" || deal.status.startsWith("Accepted")) &&
             !deal.completed && (
               <button className="primary-action" onClick={() => setRatingDeal(deal)}>
                 Mark as Complete
