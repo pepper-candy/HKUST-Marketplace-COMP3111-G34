@@ -93,6 +93,8 @@ export type NotificationItem = {
   icon: string;
   tone: "navy" | "gold" | "green" | "red";
   action?: string;
+  listingId?: number;
+  threadId?: number;
 };
 
 export type ReviewListing = {
@@ -521,6 +523,8 @@ export function notificationFromRow(row: {
   icon?: string | null;
   tone?: string | null;
   action?: string | null;
+  listing_id?: number | null;
+  thread_id?: number | null;
   created_at: string;
 }): NotificationItem {
   return {
@@ -533,6 +537,8 @@ export function notificationFromRow(row: {
     icon: row.icon || "bell",
     tone: notificationTone(row.tone),
     action: row.action ?? undefined,
+    listingId: row.listing_id == null ? undefined : Number(row.listing_id),
+    threadId: row.thread_id == null ? undefined : Number(row.thread_id),
   };
 }
 
@@ -1629,7 +1635,7 @@ export async function listListingChatPeople(listingId: number) {
   }));
 }
 
-export async function findChatWithUsername(username: string) {
+export async function findChatWithUsername(username: string, listingId?: number) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user || !username) return null;
   const myId = auth.user.id;
@@ -1650,7 +1656,10 @@ export async function findChatWithUsername(username: string) {
   );
   if (!matches.length) return null;
 
-  let thread = matches[0];
+  let thread = listingId == null
+    ? matches[0]
+    : (matches.find((row) => row.listing_id === listingId) ?? null);
+  if (!thread) return null;
   if (matches.length > 1) {
     const { data: latest } = await supabase
       .from("chat_messages")
@@ -1684,6 +1693,39 @@ export async function findChatWithUsername(username: string) {
 export async function profileIdByUsername(username: string) {
   const { data } = await supabase.from("profiles").select("id").eq("username", username).maybeSingle();
   return (data?.id as string | undefined) ?? null;
+}
+
+export async function openChatThread(threadId: number) {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return null;
+
+  const { data: thread, error } = await supabase
+    .from("chat_threads")
+    .select("id, listing_id, buyer_id, seller_id")
+    .eq("id", threadId)
+    .maybeSingle();
+  throwIf(error);
+  if (!thread) return null;
+  if (thread.buyer_id !== auth.user.id && thread.seller_id !== auth.user.id) return null;
+
+  const { data: listingRow } = await supabase
+    .from("listings")
+    .select("*")
+    .eq("id", thread.listing_id)
+    .maybeSingle();
+  if (!listingRow) return null;
+
+  const { data: profiles } = await supabase.from("profiles").select("*");
+  const profileRows = (profiles ?? []) as ProfileRow[];
+  const otherId = thread.buyer_id === auth.user.id ? thread.seller_id : thread.buyer_id;
+  const participant =
+    profileRows.find((profile) => profile.id === otherId)?.username ?? "buyer";
+
+  return {
+    listing: mapListing(listingRow as ListingRow, profileRows, []),
+    participant,
+    buyerId: thread.buyer_id as string,
+  };
 }
 
 export async function openChat(listingId: number, buyerId?: string) {
@@ -1771,6 +1813,8 @@ type NotificationChangeRow = {
   icon?: string | null;
   tone?: string | null;
   action?: string | null;
+  listing_id?: number | null;
+  thread_id?: number | null;
   read_at?: string | null;
   created_at: string;
 };
