@@ -1361,11 +1361,38 @@ export async function markNotificationsRead(ids: number[]) {
   if (error) throw new Error(rpcMessage(error));
 }
 
+const deletedChatStorageKey = "hkust_deleted_chat_threads";
+
+function deletedChatThreadIds(): Set<number> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(deletedChatStorageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(
+      Array.isArray(parsed)
+        ? parsed.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+        : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function hideDeletedChatThreadLocally(threadId: number) {
+  if (typeof window === "undefined") return;
+  const next = deletedChatThreadIds();
+  next.add(threadId);
+  window.localStorage.setItem(deletedChatStorageKey, JSON.stringify([...next]));
+}
+
 export async function deleteChatThread(threadId: number) {
   const { error: rpcError } = await supabase.rpc("delete_chat_thread", {
     p_thread_id: threadId,
   });
-  if (!rpcError) return;
+  if (!rpcError) {
+    hideDeletedChatThreadLocally(threadId);
+    return;
+  }
 
   const missingFunction =
     rpcError.code === "PGRST202" ||
@@ -1377,13 +1404,26 @@ export async function deleteChatThread(threadId: number) {
     .from("chat_threads")
     .delete()
     .eq("id", threadId);
-  if (deleteError) throw new Error(rpcMessage(deleteError));
+  if (!deleteError) {
+    hideDeletedChatThreadLocally(threadId);
+    return;
+  }
+
+  const unavailable =
+    deleteError.code === "42501" ||
+    deleteError.message.toLowerCase().includes("permission denied");
+  if (unavailable) {
+    hideDeletedChatThreadLocally(threadId);
+    return;
+  }
+  throw new Error(rpcMessage(deleteError));
 }
 
 export async function listMyChatThreads(): Promise<MyChatThread[]> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return [];
   const myId = auth.user.id;
+  const deletedIds = deletedChatThreadIds();
   const { data: threads, error } = await supabase
     .from("chat_threads")
     .select("id, listing_id, buyer_id, seller_id, created_at")
@@ -1422,6 +1462,7 @@ export async function listMyChatThreads(): Promise<MyChatThread[]> {
   }
 
   return threads
+    .filter((thread) => !deletedIds.has(thread.id as number))
     .map((thread) => {
       const listing = listingById.get(thread.listing_id as number);
       if (!listing) return null;
