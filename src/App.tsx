@@ -7237,7 +7237,7 @@ export default function App() {
         }
       },
       onDealsChange: () => {
-        void refreshRef.current({ includeBrowse: false });
+        void refreshRef.current({ includeBrowse: true });
       },
       onUpdate: (item, read) => {
         setNotifications((current) =>
