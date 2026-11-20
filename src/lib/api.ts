@@ -1362,8 +1362,22 @@ export async function markNotificationsRead(ids: number[]) {
 }
 
 export async function deleteChatThread(threadId: number) {
-  const { error } = await supabase.rpc("delete_chat_thread", { p_thread_id: threadId });
-  if (error) throw new Error(rpcMessage(error));
+  const { error: rpcError } = await supabase.rpc("delete_chat_thread", {
+    p_thread_id: threadId,
+  });
+  if (!rpcError) return;
+
+  const missingFunction =
+    rpcError.code === "PGRST202" ||
+    rpcError.message.toLowerCase().includes("could not find the function");
+
+  if (!missingFunction) throw new Error(rpcMessage(rpcError));
+
+  const { error: deleteError } = await supabase
+    .from("chat_threads")
+    .delete()
+    .eq("id", threadId);
+  if (deleteError) throw new Error(rpcMessage(deleteError));
 }
 
 export async function listMyChatThreads(): Promise<MyChatThread[]> {

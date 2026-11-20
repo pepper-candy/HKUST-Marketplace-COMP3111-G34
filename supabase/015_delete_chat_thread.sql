@@ -34,3 +34,16 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.delete_chat_thread(bigint) TO authenticated;
+
+-- RLS-backed fallback for environments that call table deletion directly.
+GRANT DELETE ON public.chat_threads TO authenticated;
+
+DROP POLICY IF EXISTS threads_delete ON public.chat_threads;
+CREATE POLICY threads_delete ON public.chat_threads
+  FOR DELETE
+  TO authenticated
+  USING (
+    buyer_id = auth.uid()
+    OR seller_id = auth.uid()
+    OR public.is_admin()
+  );
