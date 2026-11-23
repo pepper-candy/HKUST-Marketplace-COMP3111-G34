@@ -107,7 +107,16 @@ export type ReviewListing = {
   submitted: string;
   status: "Pending Review" | "Approved" | "Rejected" | "Removed";
   rejectionReason?: string;
-  reportReason?: string;
+};
+
+export type ListingReport = {
+  id: number;
+  listing: Listing;
+  reporter: string;
+  reason: string;
+  submitted: string;
+  status: "Pending" | "Closed";
+  closedAs?: "reviewed" | "dismissed";
 };
 
 export type SellerListingStatus =
@@ -212,6 +221,7 @@ export type MarketplaceSnapshot = {
   notifications: NotificationItem[];
   readNotificationIds: number[];
   reviewListings: ReviewListing[];
+  listingReports: ListingReport[];
   sellerListingRecords: SellerListingRecord[];
   sellerReviews: SellerReview[];
   systemListings: SystemListing[];
@@ -971,7 +981,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       .order("created_at", { ascending: true }),
     supabase
       .from("listing_reports")
-      .select("listing_id, reason, created_at, resolved_at")
+      .select("*")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -1090,25 +1100,14 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
 
   const notifications: NotificationItem[] = notificationRows.map((row) => notificationFromRow(row));
 
-  const reportReasonByListing = new Map<number, string>();
-  for (const report of reportsRes.data ?? []) {
-    if (report.resolved_at) continue;
-    const listingId = Number(report.listing_id);
-    const reason = typeof report.reason === "string" ? report.reason.trim() : "";
-    if (!listingId || !reason || reportReasonByListing.has(listingId)) continue;
-    reportReasonByListing.set(listingId, reason);
-  }
-
   const reviewListings: ReviewListing[] = listingRows.map((row) => {
     const listing = listingUiById.get(row.id)!;
-    const reportReason = reportReasonByListing.get(row.id);
-    const reportedLive = Boolean(reportReason) && ["live", "reserved"].includes(row.status);
     const status: ReviewListing["status"] =
       row.status === "removed"
         ? "Removed"
         : row.status === "rejected"
           ? "Rejected"
-          : row.status === "pending" || reportedLive
+          : row.status === "pending"
             ? "Pending Review"
             : "Approved";
     return {
@@ -1118,9 +1117,35 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       submitted: formatDateTime(row.created_at),
       status,
       rejectionReason: row.rejection_reason ?? undefined,
-      reportReason,
     };
   });
+
+  const listingReports: ListingReport[] = (reportsRes.data ?? [])
+    .map((report): ListingReport | null => {
+      const listing = listingUiById.get(Number(report.listing_id));
+      if (!listing) return null;
+      const resolution = typeof report.resolution === "string" ? report.resolution : null;
+      const closed =
+        resolution === "reviewed" ||
+        resolution === "dismissed" ||
+        report.resolved_at != null;
+      return {
+        id: Number(report.id),
+        listing,
+        reporter: usernameOf(profiles, String(report.reporter_id)),
+        reason: typeof report.reason === "string" ? report.reason : "",
+        submitted: formatDateTime(String(report.created_at)),
+        status: closed ? "Closed" : "Pending",
+        closedAs:
+          resolution === "reviewed"
+            ? "reviewed"
+            : resolution === "dismissed" || closed
+              ? "dismissed"
+              : undefined,
+      };
+    })
+    .filter((report): report is ListingReport => Boolean(report))
+    .sort((a, b) => Number(a.status === "Closed") - Number(b.status === "Closed"));
 
   const sellerListingRecords: SellerListingRecord[] = listingRows
     .filter(
@@ -1301,6 +1326,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     notifications,
     readNotificationIds: notificationRows.filter((row) => row.read_at).map((row) => row.id),
     reviewListings,
+    listingReports,
     sellerListingRecords,
     sellerReviews,
     systemListings,
@@ -1614,8 +1640,14 @@ export async function reportListing(listingId: number, reason?: string) {
   if (error) throw new Error(rpcMessage(error));
 }
 
-export async function dismissListingReports(listingId: number) {
-  const { error } = await supabase.rpc("dismiss_listing_reports", { p_listing_id: listingId });
+export async function resolveListingReport(
+  reportId: number,
+  resolution: "reviewed" | "dismissed",
+) {
+  const { error } = await supabase.rpc("resolve_listing_report", {
+    p_report_id: reportId,
+    p_resolution: resolution,
+  });
   if (error) throw new Error(rpcMessage(error));
 }
 

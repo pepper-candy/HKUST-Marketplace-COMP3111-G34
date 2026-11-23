@@ -4483,6 +4483,14 @@ footer > span {
   color: #87692f;
   background: var(--gold-soft);
 }
+.deal-status.status-pending {
+  color: #87692f;
+  background: var(--gold-soft);
+}
+.deal-status.status-closed {
+  color: #5d6b79;
+  background: #edf0f2;
+}
 .status-live {
   color: var(--success);
   background: #e5f1ec;

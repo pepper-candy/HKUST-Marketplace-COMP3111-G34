@@ -4412,32 +4412,37 @@ type ReviewListing = {
   submitted: string;
   status: "Pending Review" | "Approved" | "Rejected" | "Removed";
   rejectionReason?: string;
-  reportReason?: string;
 };
 
 function ListingReviewPage({
   records,
-  onRecordsChange,
+  reports,
   onAction,
   onRefresh,
   onOpenListing,
 }: {
   records: ReviewListing[];
+  reports: api.ListingReport[];
   onRecordsChange: (records: ReviewListing[]) => void;
   onAction: (message: string) => void;
   onRefresh: () => Promise<unknown>;
   onOpenListing: (listing: Listing) => void;
 }) {
-  const [filter, setFilter] = useState<"Pending Review" | "Approved" | "Rejected" | "All">(
-    "Pending Review",
-  );
+  const [filter, setFilter] = useState<
+    "Pending Review" | "Reports" | "Approved" | "Rejected" | "All"
+  >("Pending Review");
   const [approving, setApproving] = useState<ReviewListing | null>(null);
   const [rejecting, setRejecting] = useState<ReviewListing | null>(null);
-  const [dismissingReport, setDismissingReport] = useState<ReviewListing | null>(null);
+  const [dismissingReport, setDismissingReport] = useState<api.ListingReport | null>(null);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState("");
+  const showingReports = filter === "Reports";
   const visibleRecords =
-    filter === "All" ? records : records.filter((record) => record.status === filter);
+    filter === "All"
+      ? records
+      : showingReports
+        ? []
+        : records.filter((record) => record.status === filter);
   const pendingCount = records.filter((record) => record.status === "Pending Review").length;
 
   const approve = () => {
@@ -4471,16 +4476,19 @@ function ListingReviewPage({
       .catch((err) => onAction(err instanceof Error ? err.message : "Could not reject listing."));
   };
 
-  const dismissReport = () => {
-    if (!dismissingReport) return;
+  const resolveReport = (report: api.ListingReport, resolution: "reviewed" | "dismissed") => {
     void api
-      .dismissListingReports(dismissingReport.listing.id)
+      .resolveListingReport(report.id, resolution)
       .then(() => onRefresh())
       .then(() => {
-        onAction(`Report dismissed. “${dismissingReport.listing.title}” stays live.`);
+        onAction(
+          resolution === "reviewed"
+            ? `Case closed. “${report.listing.title}” was reviewed and stays live.`
+            : `Case closed. Report was not valid. “${report.listing.title}” stays live.`,
+        );
         setDismissingReport(null);
       })
-      .catch((err) => onAction(err instanceof Error ? err.message : "Could not dismiss report."));
+      .catch((err) => onAction(err instanceof Error ? err.message : "Could not update report."));
   };
 
   return (
@@ -4489,7 +4497,7 @@ function ListingReviewPage({
         <div>
           <p className="eyebrow">ADMIN PORTAL</p>
           <h1>Listing review</h1>
-          <p>Click a card to inspect photos. Approve or reject from the queue.</p>
+          <p>New listings stay in Pending Review. Each user report is its own case: pending or closed.</p>
         </div>
         <div className="admin-queue-count">
           <strong>{pendingCount}</strong>
@@ -4498,7 +4506,7 @@ function ListingReviewPage({
       </div>
 
       <div className="admin-tabs">
-        {(["Pending Review", "Approved", "Rejected", "All"] as const).map((status) => (
+        {(["Pending Review", "Reports", "Approved", "Rejected", "All"] as const).map((status) => (
           <button
             key={status}
             className={filter === status ? "active" : ""}
@@ -4508,13 +4516,110 @@ function ListingReviewPage({
             <span>
               {status === "All"
                 ? records.length
-                : records.filter((record) => record.status === status).length}
+                : status === "Reports"
+                  ? reports.length
+                  : records.filter((record) => record.status === status).length}
             </span>
           </button>
         ))}
       </div>
 
-      {visibleRecords.length ? (
+      {showingReports && reports.length ? (
+        <div className="review-list">
+          {reports.map((report) => {
+            const photoCount = report.listing.images?.length ?? (report.listing.image ? 1 : 0);
+            return (
+              <article className="review-card" key={`report-${report.id}`}>
+                <div className="review-photos">
+                  <ListingPhoto src={report.listing.image} alt={report.listing.title} />
+                  {photoCount > 1 && <span>{photoCount} photos</span>}
+                </div>
+                <div className="review-card-body">
+                  <div className="review-title-row">
+                    <div>
+                      <span className="review-id">
+                        CASE #{String(report.id).padStart(4, "0")}
+                      </span>
+                      <h2>{report.listing.title}</h2>
+                    </div>
+                    <span
+                      className={`deal-status status-${report.status.toLowerCase()}`}
+                    >
+                      {report.status}
+                    </span>
+                  </div>
+                  <dl className="review-facts">
+                    <div>
+                      <dt>Category</dt>
+                      <dd>{report.listing.category}</dd>
+                    </div>
+                    <div>
+                      <dt>Type</dt>
+                      <dd>{report.listing.type}</dd>
+                    </div>
+                    <div>
+                      <dt>Meet-up</dt>
+                      <dd>{report.listing.location}</dd>
+                    </div>
+                  </dl>
+                  <div className="rejection-note">
+                    <strong>Report reason</strong>
+                    <p>{report.reason}</p>
+                    {report.status === "Closed" && (
+                      <p>
+                        {report.closedAs === "reviewed"
+                          ? "Case closed — reviewed. Listing was not pulled back from this report."
+                          : "Case closed — not valid. Listing stays live."}
+                      </p>
+                    )}
+                  </div>
+                  <div className="review-footer">
+                    <dl className="review-meta">
+                      <div>
+                        <dt>Reporter</dt>
+                        <dd>@{report.reporter}</dd>
+                      </div>
+                      <div>
+                        <dt>Seller</dt>
+                        <dd>@{report.listing.seller}</dd>
+                      </div>
+                      <div>
+                        <dt>Reported</dt>
+                        <dd>{report.submitted}</dd>
+                      </div>
+                    </dl>
+                    {report.status === "Pending" && (
+                      <div className="review-actions">
+                        <button
+                          className="request-decline"
+                          onClick={() => setDismissingReport(report)}
+                        >
+                          Reject report
+                        </button>
+                        <button
+                          className="primary-action"
+                          onClick={() => {
+                            resolveReport(report, "reviewed");
+                            onOpenListing(report.listing);
+                          }}
+                        >
+                          Review
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : showingReports ? (
+        <div className="empty-state">
+          <Icon name="check" size={28} />
+          <h3>No report cases</h3>
+          <p>Each report is a case here. Pending Review stays for new listing submissions only.</p>
+        </div>
+      ) : visibleRecords.length ? (
         <div className="review-list">
           {visibleRecords.map((record) => {
             const photoCount = record.listing.images?.length ?? (record.listing.image ? 1 : 0);
@@ -4556,12 +4661,6 @@ function ListingReviewPage({
                       <dd>{record.listing.location}</dd>
                     </div>
                   </dl>
-                  {record.reportReason && (
-                    <div className="rejection-note">
-                      <strong>Report reason</strong>
-                      <p>{record.reportReason}</p>
-                    </div>
-                  )}
                   {record.rejectionReason && (
                     <div className="rejection-note">
                       <strong>Rejection reason</strong>
@@ -4584,53 +4683,27 @@ function ListingReviewPage({
                     </dl>
                     {record.status === "Pending Review" && (
                       <div className="review-actions">
-                        {record.reportReason &&
-                        record.listing.availability !== "Pending review" ? (
-                          <>
-                            <button
-                              className="request-decline"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setDismissingReport(record);
-                              }}
-                            >
-                              Reject report
-                            </button>
-                            <button
-                              className="primary-action"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onOpenListing(record.listing);
-                              }}
-                            >
-                              Review
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              className="request-decline"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setRejecting(record);
-                                setReason("");
-                                setReasonError("");
-                              }}
-                            >
-                              Reject
-                            </button>
-                            <button
-                              className="primary-action"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setApproving(record);
-                              }}
-                            >
-                              <Icon name="check" size={15} />
-                              Approve
-                            </button>
-                          </>
-                        )}
+                        <button
+                          className="request-decline"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setRejecting(record);
+                            setReason("");
+                            setReasonError("");
+                          }}
+                        >
+                          Reject
+                        </button>
+                        <button
+                          className="primary-action"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setApproving(record);
+                          }}
+                        >
+                          <Icon name="check" size={15} />
+                          Approve
+                        </button>
                       </div>
                     )}
                   </div>
@@ -4731,16 +4804,20 @@ function ListingReviewPage({
             <span className="confirm-icon">
               <Icon name="x" size={23} />
             </span>
-            <h2>Reject this report?</h2>
+            <h2>Close this case?</h2>
             <p>
-              This report is not valid. “{dismissingReport.listing.title}” stays live and is not
-              pulled back. Use Review → Take down if the listing itself should be removed.
+              This report is not valid. The case will be marked closed. “{dismissingReport.listing.title}”
+              stays live and is not pulled back. Use Review → Take down if the listing itself should
+              be removed.
             </p>
             <div className="confirm-actions">
               <button className="secondary-action" onClick={() => setDismissingReport(null)}>
                 Cancel
               </button>
-              <button className="destructive-action" onClick={dismissReport}>
+              <button
+                className="destructive-action"
+                onClick={() => resolveReport(dismissingReport, "dismissed")}
+              >
                 Reject report
               </button>
             </div>
@@ -6864,6 +6941,7 @@ function SupportingPage({
   notificationReads,
   onNotificationReadsChange,
   reviewListings,
+  listingReports,
   onReviewListingsChange,
   users,
   onUsersChange,
@@ -6901,6 +6979,7 @@ function SupportingPage({
   notificationReads: number[];
   onNotificationReadsChange: (ids: number[]) => void;
   reviewListings: ReviewListing[];
+  listingReports: api.ListingReport[];
   onReviewListingsChange: (records: ReviewListing[]) => void;
   users: MarketplaceUser[];
   onUsersChange: (users: MarketplaceUser[]) => void;
@@ -7008,6 +7087,7 @@ function SupportingPage({
     return (
       <ListingReviewPage
         records={reviewListings}
+        reports={listingReports}
         onRecordsChange={onReviewListingsChange}
         onAction={onAction}
         onRefresh={onRefresh}
@@ -7664,6 +7744,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notificationReads, setNotificationReads] = useState<number[]>([]);
   const [reviewListings, setReviewListings] = useState<ReviewListing[]>([]);
+  const [listingReports, setListingReports] = useState<api.ListingReport[]>([]);
   const [sellerListingRecords, setSellerListingRecords] = useState<SellerListingRecord[]>([]);
   const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
   const [systemListings, setSystemListings] = useState<SystemListing[]>([]);
@@ -7709,6 +7790,7 @@ export default function App() {
     setNotifications(snap.notifications);
     setNotificationReads(snap.readNotificationIds);
     setReviewListings(snap.reviewListings);
+    setListingReports(snap.listingReports);
     setSellerListingRecords(snap.sellerListingRecords);
     setSellerReviews(snap.sellerReviews);
     setSystemListings(snap.systemListings);
@@ -8154,6 +8236,7 @@ export default function App() {
               notificationReads={notificationReads}
               onNotificationReadsChange={setNotificationReads}
               reviewListings={reviewListings}
+              listingReports={listingReports}
               onReviewListingsChange={setReviewListings}
               users={users}
               onUsersChange={setUsers}
