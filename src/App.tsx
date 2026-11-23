@@ -31,6 +31,15 @@ type ListingOfferItem = {
 
 const CHAT_OFFER_DECLINED_MARKER = "__HKUST_OFFER_DECLINED__:";
 
+function applyDefaultBorrowPeriod(
+  setStart: (value: string) => void,
+  setEnd: (value: string) => void,
+) {
+  const period = api.defaultBorrowPeriod();
+  setStart(period.start);
+  setEnd(period.end);
+}
+
 function unifyOfferCopy(body: string, listingType: Listing["type"]) {
   let text = body
     .replace(/^Proposed price:\s*/i, "Offer: ")
@@ -682,12 +691,9 @@ function DetailModal({
     }
 
     if (listing.type === "Lend") {
-      if (!startDate || !endDate) {
-        setFormError("Choose both a start and end date.");
-        return;
-      }
-      if (new Date(endDate).getTime() - new Date(startDate).getTime() < 5000) {
-        setFormError("End time must be at least 5 seconds after the start time.");
+      const periodError = api.borrowPeriodError(startDate, endDate);
+      if (periodError) {
+        setFormError(periodError);
         return;
       }
     }
@@ -743,6 +749,7 @@ function DetailModal({
         });
       return;
     }
+    if (listing.type === "Lend") applyDefaultBorrowPeriod(setStartDate, setEndDate);
     setActionOpen(true);
   };
 
@@ -951,7 +958,7 @@ function DetailModal({
                   <small>
                     {listing.type === "Sell"
                       ? "The seller can accept, decline, or counter."
-                      : "Minimum duration is 5 seconds for testing."}
+                      : "Start cannot be in the past. Minimum duration is 5 seconds for testing."}
                   </small>
                 </div>
                 <button type="button" onClick={() => setActionOpen(false)} aria-label="Close form">
@@ -1634,12 +1641,9 @@ function ChatScreen({
       }
       body = api.offerDetailLabel({ type: "Sell", price: Number(offerPrice) });
     } else if (listing.type === "Lend") {
-      if (!startDate || !endDate) {
-        setOfferError("Choose both a start and end time.");
-        return;
-      }
-      if (new Date(endDate).getTime() - new Date(startDate).getTime() < 5000) {
-        setOfferError("End time must be at least 5 seconds after the start time.");
+      const periodError = api.borrowPeriodError(startDate, endDate);
+      if (periodError) {
+        setOfferError(periodError);
         return;
       }
       body = api.offerDetailLabel({ type: "Lend", start: startDate, end: endDate });
@@ -2043,6 +2047,9 @@ function ChatScreen({
                           onClick={() => {
                             setFormalAction("counter");
                             setOfferError("");
+                            if (listing.type === "Lend") {
+                              applyDefaultBorrowPeriod(setStartDate, setEndDate);
+                            }
                             setOfferOpen(true);
                           }}
                         >
@@ -2086,6 +2093,9 @@ function ChatScreen({
                           onClick={() => {
                             setFormalAction("counter");
                             setOfferError("");
+                            if (listing.type === "Lend") {
+                              applyDefaultBorrowPeriod(setStartDate, setEndDate);
+                            }
                             setOfferOpen(true);
                           }}
                         >
@@ -2169,6 +2179,7 @@ function ChatScreen({
                   Start date & time
                   <input
                     type="datetime-local"
+                    step="1"
                     value={startDate}
                     onChange={(event) => setStartDate(event.target.value)}
                   />
@@ -2177,6 +2188,7 @@ function ChatScreen({
                   End date & time
                   <input
                     type="datetime-local"
+                    step="1"
                     value={endDate}
                     onChange={(event) => setEndDate(event.target.value)}
                   />
@@ -2211,6 +2223,9 @@ function ChatScreen({
               className="offer-trigger"
               onClick={() => {
                 setFormalAction("offer");
+                if (!offerOpen && listing.type === "Lend") {
+                  applyDefaultBorrowPeriod(setStartDate, setEndDate);
+                }
                 setOfferOpen(!offerOpen);
               }}
             >
@@ -2696,8 +2711,9 @@ function MyDealsPage({
       }
       detail = api.offerDetailLabel({ type: "Sell", price: Number(counterPrice) });
     } else if (counteringDeal.kind === "Borrow") {
-      if (!counterStart || !counterEnd || new Date(counterEnd) <= new Date(counterStart)) {
-        setCounterError("Choose a valid start and end period.");
+      const periodError = api.borrowPeriodError(counterStart, counterEnd);
+      if (periodError) {
+        setCounterError(periodError);
         return;
       }
       detail = api.offerDetailLabel({ type: "Lend", start: counterStart, end: counterEnd });
@@ -2804,6 +2820,7 @@ function MyDealsPage({
                   Start date & time
                   <input
                     type="datetime-local"
+                    step="1"
                     value={counterStart}
                     onChange={(event) => setCounterStart(event.target.value)}
                   />
@@ -2812,6 +2829,7 @@ function MyDealsPage({
                   End date & time
                   <input
                     type="datetime-local"
+                    step="1"
                     value={counterEnd}
                     onChange={(event) => setCounterEnd(event.target.value)}
                   />
@@ -2832,7 +2850,7 @@ function MyDealsPage({
             <Icon name="message" size={15} /> Open chat
           </button>
           <span />
-          {deal.kind === "Borrow" && !deal.completed && (
+          {deal.kind === "Borrow" && deal.status === "Borrowed" && !deal.completed && (
             <button className="secondary-action" onClick={() => markReturned(deal)}>
               Return early
             </button>
@@ -2865,7 +2883,14 @@ function MyDealsPage({
                 disabled={counterBusyId === deal.id}
                 onClick={() => {
                   setCounterError("");
-                  setCounteringDeal(counteringDeal?.id === deal.id ? null : deal);
+                  if (counteringDeal?.id === deal.id) {
+                    setCounteringDeal(null);
+                    return;
+                  }
+                  if (deal.kind === "Borrow") {
+                    applyDefaultBorrowPeriod(setCounterStart, setCounterEnd);
+                  }
+                  setCounteringDeal(deal);
                 }}
               >
                 Counter
@@ -3402,8 +3427,9 @@ function SellerRequestsPage({
       }
       detail = api.offerDetailLabel({ type: "Sell", price: Number(counterPrice) });
     } else {
-      if (!counterStart || !counterEnd || new Date(counterEnd) <= new Date(counterStart)) {
-        setFormError("Choose a valid start and end period.");
+      const periodError = api.borrowPeriodError(counterStart, counterEnd);
+      if (periodError) {
+        setFormError(periodError);
         return;
       }
       detail = api.offerDetailLabel({ type: "Lend", start: counterStart, end: counterEnd });
@@ -3560,6 +3586,7 @@ function SellerRequestsPage({
                           Start date & time
                           <input
                             type="datetime-local"
+                            step="1"
                             value={counterStart}
                             onChange={(event) => setCounterStart(event.target.value)}
                           />
@@ -3568,6 +3595,7 @@ function SellerRequestsPage({
                           End date & time
                           <input
                             type="datetime-local"
+                            step="1"
                             value={counterEnd}
                             onChange={(event) => setCounterEnd(event.target.value)}
                           />
@@ -3606,6 +3634,9 @@ function SellerRequestsPage({
                         onClick={() => {
                           setCountering(request);
                           setFormError("");
+                          if (request.type === "Borrow") {
+                            applyDefaultBorrowPeriod(setCounterStart, setCounterEnd);
+                          }
                         }}
                       >
                         Counter

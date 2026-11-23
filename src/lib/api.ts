@@ -430,6 +430,44 @@ function hongKongDateTimeToIso(value: string) {
   return new Date(value).toISOString();
 }
 
+export function hongKongDateTimeLocalValue(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: HK_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
+export function defaultBorrowPeriod(now = new Date()) {
+  return {
+    start: hongKongDateTimeLocalValue(now),
+    end: hongKongDateTimeLocalValue(new Date(now.getTime() + 12_000)),
+  };
+}
+
+export function borrowPeriodError(start: string, end: string) {
+  if (!start.trim() || !end.trim()) return "Choose both a start and end date.";
+  const startIso = hongKongDateTimeToIso(start);
+  const endIso = hongKongDateTimeToIso(end);
+  if (!startIso || !endIso) return "Choose a valid start and end time.";
+  const startMs = Date.parse(startIso);
+  const endMs = Date.parse(endIso);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return "Choose a valid start and end time.";
+  }
+  const nowSecond = Math.floor(Date.now() / 1000) * 1000;
+  if (startMs < nowSecond) return "Start time cannot be in the past.";
+  if (endMs < startMs + 5000) return "End time must be at least 5 seconds after the start time.";
+  return null;
+}
+
 function hongKongDateKey(date: Date) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: HK_TIME_ZONE,
