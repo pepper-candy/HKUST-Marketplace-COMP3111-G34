@@ -897,15 +897,17 @@ function DetailModal({
                 : listing.type === "Lend"
                   ? "Available to borrow"
                   : "Free"}
-              {listing.type === "Lend" && listing.duration != null && listing.durationUnit ? (
-                <small>Max {api.formatLendingDuration(listing.duration, listing.durationUnit)}</small>
-              ) : null}
             </div>
             <span className="view-count">Viewed {viewCount} times</span>
           </div>
           <div className="description-block">
             <small>DESCRIPTION</small>
             <p className="detail-description">{listing.description}</p>
+            {listing.type === "Lend" && listing.duration != null && listing.durationUnit ? (
+              <p className="detail-lend-max">
+                Maximum lending period: {api.formatLendingDuration(listing.duration, listing.durationUnit)}
+              </p>
+            ) : null}
           </div>
           <dl className="detail-facts">
             <div>
@@ -932,12 +934,6 @@ function DetailModal({
               <dt>Listing type</dt>
               <dd>{listing.type}</dd>
             </div>
-            {listing.type === "Lend" && listing.duration != null && listing.durationUnit ? (
-              <div>
-                <dt>Lending duration</dt>
-                <dd>{api.formatLendingDuration(listing.duration, listing.durationUnit)}</dd>
-              </div>
-            ) : null}
           </dl>
           <button
             className="seller-block"
@@ -965,13 +961,9 @@ function DetailModal({
               <div className="request-form-heading">
                 <div>
                   <strong>{listing.type === "Sell" ? "Make an offer" : "Request to borrow"}</strong>
-                  <small>
-                    {listing.type === "Sell"
-                      ? "The seller can accept, decline, or counter."
-                      : listing.duration != null && listing.durationUnit
-                        ? `Maximum ${api.formatLendingDuration(listing.duration, listing.durationUnit)} per request. Start cannot be in the past.`
-                        : "Start cannot be in the past. Minimum duration is 5 seconds for testing."}
-                  </small>
+                  {listing.type === "Sell" ? (
+                    <small>The seller can accept, decline, or counter.</small>
+                  ) : null}
                 </div>
                 <button type="button" onClick={() => setActionOpen(false)} aria-label="Close form">
                   <Icon name="x" size={16} />
@@ -1219,7 +1211,9 @@ function DetailModal({
                   </div>
                 </div>
               )}
-              {formError && <p className="form-error listing-form-error">{formError}</p>}
+              {!actionOpen && formError && (
+                <p className="form-error listing-form-error">{formError}</p>
+              )}
               {(listing.availability === "Available" || listing.availability == null) && (
               <div className="detail-actions">
                 <button className="primary-action" onClick={openAction} disabled={submitting}>

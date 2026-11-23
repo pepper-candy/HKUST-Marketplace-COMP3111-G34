@@ -1477,7 +1477,7 @@ footer > span {
 .detail-gallery {
   min-width: 0;
   padding: 18px 0 18px 18px;
-  background: #f1f3f5;
+  background: white;
 }
 .detail-photo {
   height: 540px;
@@ -1601,7 +1601,7 @@ footer > span {
   border-radius: 10px;
   font-size: 14px;
   color: var(--navy);
-  background: #e4e8eb;
+  background: white;
 }
 .photo-lightbox {
   position: fixed;
@@ -1674,16 +1674,8 @@ footer > span {
   color: var(--navy);
 }
 .detail-price {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
   font: 800 22px "Manrope";
   color: var(--navy);
-}
-.detail-price small {
-  color: var(--muted);
-  font: 600 11px "Manrope";
 }
 .price-and-views {
   display: flex;
@@ -1710,6 +1702,13 @@ footer > span {
   font-size: 12px;
   line-height: 1.65;
   margin: 5px 0 0;
+}
+.detail-lend-max {
+  margin: 14px 0 0;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
 }
 .detail-facts {
   display: grid;
