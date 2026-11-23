@@ -917,6 +917,30 @@ main {
   display: inline-block;
   margin: 0 5px 1px 0;
 }
+.available-dot.tone-ok,
+.history-outcome.tone-ok {
+  color: var(--success);
+}
+.available-dot.tone-ok:before,
+.history-outcome.tone-ok::before {
+  background: #46a47f;
+}
+.available-dot.tone-wait,
+.history-outcome.tone-wait {
+  color: #87692f;
+}
+.available-dot.tone-wait:before,
+.history-outcome.tone-wait::before {
+  background: var(--gold);
+}
+.available-dot.tone-bad,
+.history-outcome.tone-bad {
+  color: #9d3e3e;
+}
+.available-dot.tone-bad:before,
+.history-outcome.tone-bad::before {
+  background: #c76161;
+}
 .listing-body h3 {
   font-size: 14px;
   color: var(--navy);
@@ -1262,6 +1286,15 @@ footer > span {
   background: rgba(255, 255, 255, 0.7);
   font-size: 7px;
   font-weight: 700;
+}
+.offer-status.tone-ok {
+  color: var(--success);
+}
+.offer-status.tone-wait {
+  color: #87692f;
+}
+.offer-status.tone-bad {
+  color: #9d3e3e;
 }
 .message-bubble.formal.stale {
   opacity: 0.72;
@@ -2434,14 +2467,23 @@ footer > span {
   font-weight: 700;
 }
 .status-borrowed,
-.status-ready-to-collect {
+.status-ready-to-collect,
+.status-reserved {
+  color: #87692f;
+  background: var(--gold-soft);
+}
+.status-completed,
+.status-returned,
+.status-sold,
+.status-lent,
+.status-given {
   color: var(--success);
   background: #e5f1ec;
 }
-.status-completed,
-.status-returned {
-  color: #5d6b79;
-  background: #edf0f2;
+.status-cancelled,
+.status-removed {
+  color: #9d3e3e;
+  background: #f8eaea;
 }
 .deal-detail {
   color: #536577;
@@ -3045,6 +3087,10 @@ footer > span {
   background: #edf0f2;
   font-size: 8px;
   font-weight: 700;
+}
+.state-available {
+  color: var(--success);
+  background: #e5f1ec;
 }
 .state-reserved {
   color: #87692f;
@@ -4496,8 +4542,8 @@ footer > span {
   background: #e5f1ec;
 }
 .status-removed {
-  color: #5d6b79;
-  background: #edf0f2;
+  color: #9d3e3e;
+  background: #f8eaea;
 }
 .history-type.type-sold {
   color: var(--navy);
@@ -4511,10 +4557,12 @@ footer > span {
   color: var(--success);
   background: #e5f1ec;
 }
-.history-outcome.in-progress {
+.history-outcome.in-progress,
+.history-outcome.tone-wait {
   color: #87692f;
 }
-.history-outcome.in-progress::before {
+.history-outcome.in-progress::before,
+.history-outcome.tone-wait::before {
   background: var(--gold);
 }
 .admin-users-table {
@@ -5110,8 +5158,8 @@ footer > span {
 .seller-status.status-sold,
 .seller-status.status-lent,
 .seller-status.status-given {
-  color: #5d6b79;
-  background: #f1f3f5;
+  color: var(--success);
+  background: #e5f1ec;
 }
 .seller-listing-body {
   padding: 13px 14px 12px;

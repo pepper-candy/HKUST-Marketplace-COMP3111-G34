@@ -31,6 +31,33 @@ type ListingOfferItem = {
 
 const CHAT_OFFER_DECLINED_MARKER = "__HKUST_OFFER_DECLINED__:";
 
+function statusTone(label: string): "ok" | "wait" | "bad" {
+  const text = label.trim().toLowerCase();
+  if (
+    text.includes("cancel") ||
+    text.includes("removed") ||
+    text.includes("reject") ||
+    text.includes("declin") ||
+    text.includes("deactivat") ||
+    text.includes("not valid") ||
+    text.includes("no longer") ||
+    text.includes("not finished")
+  ) {
+    return "bad";
+  }
+  if (
+    text.includes("pending") ||
+    text.includes("in progress") ||
+    text.includes("counter") ||
+    text.includes("reserv") ||
+    text === "borrowed" ||
+    text.includes("ready to collect")
+  ) {
+    return "wait";
+  }
+  return "ok";
+}
+
 function applyDefaultBorrowPeriod(
   setStart: (value: string) => void,
   setEnd: (value: string) => void,
@@ -425,7 +452,9 @@ function ListingCard({ listing, onOpen }: { listing: Listing; onOpen: () => void
       <div className="listing-body">
         <div className="card-topline">
           <span>{listing.category}</span>
-          <span className="available-dot">{listing.availability ?? "Available"}</span>
+          <span className={`available-dot tone-${statusTone(listing.availability ?? "Available")}`}>
+            {listing.availability ?? "Available"}
+          </span>
         </div>
         <h3>{listing.title}</h3>
         <p className="seller">by @{listing.seller}</p>
@@ -887,7 +916,9 @@ function DetailModal({
             <span>
               {listing.category} · {listing.type}
             </span>
-            <span className="available-dot">{listing.availability ?? "Available"}</span>
+            <span className={`available-dot tone-${statusTone(listing.availability ?? "Available")}`}>
+              {listing.availability ?? "Available"}
+            </span>
           </div>
           <h2 id="listing-detail-title">{listing.title}</h2>
           <div className="price-and-views">
@@ -1934,7 +1965,9 @@ function ChatScreen({
               {listing.condition} · {listing.location}
             </small>
           </div>
-          <span className="available-dot">{listing.availability ?? "Available"}</span>
+          <span className={`available-dot tone-${statusTone(listing.availability ?? "Available")}`}>
+            {listing.availability ?? "Available"}
+          </span>
         </button>
 
         <div className="message-history" aria-live="polite">
@@ -2016,7 +2049,11 @@ function ChatScreen({
                         : message.body}
                     </p>
                     {message.kind === "offer" && (
-                      <span className="offer-status">
+                      <span
+                        className={`offer-status tone-${statusTone(
+                          stale ? "No longer valid" : offerStatus,
+                        )}`}
+                      >
                         {stale
                           ? "No longer valid"
                           : initialOffer
@@ -3268,9 +3305,7 @@ function DealHistoryPage({
                     </span>
                   </td>
                   <td>
-                    <span
-                      className={`history-outcome ${deal.outcome.includes("declined") ? "declined" : ""}`}
-                    >
+                    <span className={`history-outcome tone-${statusTone(deal.outcome)}`}>
                       {deal.outcome}
                     </span>
                   </td>
@@ -6431,9 +6466,7 @@ function AllDealsPage({ deals }: { deals: SystemDeal[] }) {
                   <td>{deal.start}</td>
                   <td>{deal.end}</td>
                   <td>
-                    <span
-                      className={`history-outcome ${deal.status === "In progress" ? "in-progress" : ""}`}
-                    >
+                    <span className={`history-outcome tone-${statusTone(deal.status)}`}>
                       {deal.status}
                     </span>
                   </td>
