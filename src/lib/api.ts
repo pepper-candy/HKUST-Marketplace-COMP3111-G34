@@ -445,11 +445,46 @@ export function hongKongDateTimeLocalValue(date = new Date()) {
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
+function padHongKongPart(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function snapHongKongToTenMinutes(date: Date) {
+  const value = hongKongDateTimeLocalValue(date);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return value;
+  let year = Number(match[1]);
+  let month = Number(match[2]);
+  let day = Number(match[3]);
+  let hour = Number(match[4]);
+  let minute = Number(match[5]);
+  const second = Number(match[6]);
+
+  if (second > 0) minute += 1;
+  if (minute % 10 !== 0) minute = Math.ceil(minute / 10) * 10;
+  if (minute >= 60) {
+    minute = 0;
+    hour += 1;
+  }
+  if (hour >= 24) {
+    hour = 0;
+    const next = new Date(`${year}-${padHongKongPart(month)}-${padHongKongPart(day)}T12:00:00+08:00`);
+    next.setTime(next.getTime() + 24 * 60 * 60 * 1000);
+    const nextValue = hongKongDateTimeLocalValue(next);
+    year = Number(nextValue.slice(0, 4));
+    month = Number(nextValue.slice(5, 7));
+    day = Number(nextValue.slice(8, 10));
+  }
+
+  return `${year}-${padHongKongPart(month)}-${padHongKongPart(day)}T${padHongKongPart(hour)}:${padHongKongPart(minute)}:00`;
+}
+
 export function defaultBorrowPeriod(now = new Date()) {
-  return {
-    start: hongKongDateTimeLocalValue(now),
-    end: hongKongDateTimeLocalValue(new Date(now.getTime() + 12_000)),
-  };
+  const start = snapHongKongToTenMinutes(new Date(now.getTime() + 60 * 60 * 1000));
+  const end = hongKongDateTimeLocalValue(
+    new Date(new Date(`${start}+08:00`).getTime() + 24 * 60 * 60 * 1000),
+  );
+  return { start, end };
 }
 
 export function borrowPeriodError(start: string, end: string) {
