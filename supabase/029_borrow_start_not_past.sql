@@ -8,6 +8,10 @@ LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = public
 AS $$
+DECLARE
+  v_duration integer;
+  v_unit text;
+  v_max interval;
 BEGIN
   IF NEW.kind <> 'borrow' THEN
     RETURN NEW;
@@ -26,6 +30,24 @@ BEGIN
   IF NEW.end_at < NEW.start_at + interval '5 seconds' THEN
     RAISE EXCEPTION 'End time must be at least 5 seconds after the start time';
   END IF;
+
+  SELECT lending_duration_value, lending_duration_unit
+  INTO v_duration, v_unit
+  FROM public.listings
+  WHERE id = NEW.listing_id;
+
+  IF v_duration IS NOT NULL AND v_duration > 0 AND v_unit IS NOT NULL THEN
+    v_max := CASE v_unit
+      WHEN 'Hours' THEN make_interval(hours => v_duration)
+      WHEN 'Days' THEN make_interval(days => v_duration)
+      WHEN 'Weeks' THEN make_interval(weeks => v_duration)
+      ELSE NULL
+    END;
+    IF v_max IS NOT NULL AND NEW.end_at > NEW.start_at + v_max THEN
+      RAISE EXCEPTION 'Borrow period cannot exceed the listing maximum of % %', v_duration, v_unit;
+    END IF;
+  END IF;
+
   RETURN NEW;
 END;
 $$;

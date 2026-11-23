@@ -34,8 +34,9 @@ const CHAT_OFFER_DECLINED_MARKER = "__HKUST_OFFER_DECLINED__:";
 function applyDefaultBorrowPeriod(
   setStart: (value: string) => void,
   setEnd: (value: string) => void,
+  listing?: Listing,
 ) {
-  const period = api.defaultBorrowPeriod();
+  const period = api.defaultBorrowPeriod(new Date(), listing);
   setStart(period.start);
   setEnd(period.end);
 }
@@ -691,7 +692,7 @@ function DetailModal({
     }
 
     if (listing.type === "Lend") {
-      const periodError = api.borrowPeriodError(startDate, endDate);
+      const periodError = api.borrowPeriodError(startDate, endDate, listing);
       if (periodError) {
         setFormError(periodError);
         return;
@@ -749,7 +750,7 @@ function DetailModal({
         });
       return;
     }
-    if (listing.type === "Lend") applyDefaultBorrowPeriod(setStartDate, setEndDate);
+    if (listing.type === "Lend") applyDefaultBorrowPeriod(setStartDate, setEndDate, listing);
     setActionOpen(true);
   };
 
@@ -896,6 +897,9 @@ function DetailModal({
                 : listing.type === "Lend"
                   ? "Available to borrow"
                   : "Free"}
+              {listing.type === "Lend" && listing.duration != null && listing.durationUnit ? (
+                <small>Max {api.formatLendingDuration(listing.duration, listing.durationUnit)}</small>
+              ) : null}
             </div>
             <span className="view-count">Viewed {viewCount} times</span>
           </div>
@@ -928,6 +932,12 @@ function DetailModal({
               <dt>Listing type</dt>
               <dd>{listing.type}</dd>
             </div>
+            {listing.type === "Lend" && listing.duration != null && listing.durationUnit ? (
+              <div>
+                <dt>Lending duration</dt>
+                <dd>{api.formatLendingDuration(listing.duration, listing.durationUnit)}</dd>
+              </div>
+            ) : null}
           </dl>
           <button
             className="seller-block"
@@ -958,7 +968,9 @@ function DetailModal({
                   <small>
                     {listing.type === "Sell"
                       ? "The seller can accept, decline, or counter."
-                      : "Start cannot be in the past. Minimum duration is 5 seconds for testing."}
+                      : listing.duration != null && listing.durationUnit
+                        ? `Maximum ${api.formatLendingDuration(listing.duration, listing.durationUnit)} per request. Start cannot be in the past.`
+                        : "Start cannot be in the past. Minimum duration is 5 seconds for testing."}
                   </small>
                 </div>
                 <button type="button" onClick={() => setActionOpen(false)} aria-label="Close form">
@@ -1641,7 +1653,7 @@ function ChatScreen({
       }
       body = api.offerDetailLabel({ type: "Sell", price: Number(offerPrice) });
     } else if (listing.type === "Lend") {
-      const periodError = api.borrowPeriodError(startDate, endDate);
+      const periodError = api.borrowPeriodError(startDate, endDate, listing);
       if (periodError) {
         setOfferError(periodError);
         return;
@@ -2048,7 +2060,7 @@ function ChatScreen({
                             setFormalAction("counter");
                             setOfferError("");
                             if (listing.type === "Lend") {
-                              applyDefaultBorrowPeriod(setStartDate, setEndDate);
+                              applyDefaultBorrowPeriod(setStartDate, setEndDate, listing);
                             }
                             setOfferOpen(true);
                           }}
@@ -2094,7 +2106,7 @@ function ChatScreen({
                             setFormalAction("counter");
                             setOfferError("");
                             if (listing.type === "Lend") {
-                              applyDefaultBorrowPeriod(setStartDate, setEndDate);
+                              applyDefaultBorrowPeriod(setStartDate, setEndDate, listing);
                             }
                             setOfferOpen(true);
                           }}
@@ -2224,7 +2236,7 @@ function ChatScreen({
               onClick={() => {
                 setFormalAction("offer");
                 if (!offerOpen && listing.type === "Lend") {
-                  applyDefaultBorrowPeriod(setStartDate, setEndDate);
+                  applyDefaultBorrowPeriod(setStartDate, setEndDate, listing);
                 }
                 setOfferOpen(!offerOpen);
               }}
@@ -2711,7 +2723,7 @@ function MyDealsPage({
       }
       detail = api.offerDetailLabel({ type: "Sell", price: Number(counterPrice) });
     } else if (counteringDeal.kind === "Borrow") {
-      const periodError = api.borrowPeriodError(counterStart, counterEnd);
+      const periodError = api.borrowPeriodError(counterStart, counterEnd, counteringDeal.listing);
       if (periodError) {
         setCounterError(periodError);
         return;
@@ -2888,7 +2900,7 @@ function MyDealsPage({
                     return;
                   }
                   if (deal.kind === "Borrow") {
-                    applyDefaultBorrowPeriod(setCounterStart, setCounterEnd);
+                    applyDefaultBorrowPeriod(setCounterStart, setCounterEnd, deal.listing);
                   }
                   setCounteringDeal(deal);
                 }}
@@ -3427,7 +3439,7 @@ function SellerRequestsPage({
       }
       detail = api.offerDetailLabel({ type: "Sell", price: Number(counterPrice) });
     } else {
-      const periodError = api.borrowPeriodError(counterStart, counterEnd);
+      const periodError = api.borrowPeriodError(counterStart, counterEnd, countering.listing);
       if (periodError) {
         setFormError(periodError);
         return;
@@ -3635,7 +3647,7 @@ function SellerRequestsPage({
                           setCountering(request);
                           setFormError("");
                           if (request.type === "Borrow") {
-                            applyDefaultBorrowPeriod(setCounterStart, setCounterEnd);
+                            applyDefaultBorrowPeriod(setCounterStart, setCounterEnd, request.listing);
                           }
                         }}
                       >

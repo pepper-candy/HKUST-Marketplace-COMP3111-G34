@@ -26,6 +26,8 @@ export type Listing = {
   category: string;
   type: "Sell" | "Lend" | "Give Away";
   price?: number;
+  duration?: number;
+  durationUnit?: "Hours" | "Days" | "Weeks";
   condition: string;
   location: string;
   posted: string;
@@ -479,15 +481,44 @@ function snapHongKongToTenMinutes(date: Date) {
   return `${year}-${padHongKongPart(month)}-${padHongKongPart(day)}T${padHongKongPart(hour)}:${padHongKongPart(minute)}:00`;
 }
 
-export function defaultBorrowPeriod(now = new Date()) {
+export function lendingDurationMs(value?: number | null, unit?: string | null) {
+  if (value == null || value <= 0 || !unit) return null;
+  const normalized = unit.toLowerCase();
+  if (normalized === "hours") return value * 60 * 60 * 1000;
+  if (normalized === "days") return value * 24 * 60 * 60 * 1000;
+  if (normalized === "weeks") return value * 7 * 24 * 60 * 60 * 1000;
+  return null;
+}
+
+export function formatLendingDuration(value?: number | null, unit?: string | null) {
+  if (value == null || !unit) return "";
+  const label = value === 1 ? unit.replace(/s$/i, "") : unit;
+  return `${value} ${label}`;
+}
+
+export function listingMaxBorrowMs(listing?: Pick<Listing, "duration" | "durationUnit"> | null) {
+  if (!listing) return null;
+  return lendingDurationMs(listing.duration, listing.durationUnit);
+}
+
+export function defaultBorrowPeriod(
+  now = new Date(),
+  listing?: Pick<Listing, "duration" | "durationUnit"> | null,
+) {
   const start = snapHongKongToTenMinutes(new Date(now.getTime() + 60 * 60 * 1000));
-  const end = hongKongDateTimeLocalValue(
-    new Date(new Date(`${start}+08:00`).getTime() + 24 * 60 * 60 * 1000),
-  );
+  const startMs = new Date(`${start}+08:00`).getTime();
+  const oneDay = 24 * 60 * 60 * 1000;
+  const maxMs = listingMaxBorrowMs(listing);
+  const span = maxMs != null ? Math.min(oneDay, maxMs) : oneDay;
+  const end = hongKongDateTimeLocalValue(new Date(startMs + Math.max(span, 5000)));
   return { start, end };
 }
 
-export function borrowPeriodError(start: string, end: string) {
+export function borrowPeriodError(
+  start: string,
+  end: string,
+  listing?: Pick<Listing, "duration" | "durationUnit"> | null,
+) {
   if (!start.trim() || !end.trim()) return "Choose both a start and end date.";
   const startIso = hongKongDateTimeToIso(start);
   const endIso = hongKongDateTimeToIso(end);
@@ -500,6 +531,13 @@ export function borrowPeriodError(start: string, end: string) {
   const nowSecond = Math.floor(Date.now() / 1000) * 1000;
   if (startMs < nowSecond) return "Start time cannot be in the past.";
   if (endMs < startMs + 5000) return "End time must be at least 5 seconds after the start time.";
+  const maxMs = listingMaxBorrowMs(listing);
+  if (maxMs != null && endMs - startMs > maxMs) {
+    const label = formatLendingDuration(listing?.duration, listing?.durationUnit);
+    return label
+      ? `Borrow period cannot exceed ${label}.`
+      : "Borrow period cannot exceed the listing maximum.";
+  }
   return null;
 }
 
@@ -734,6 +772,13 @@ function mapListing(row: ListingRow, profiles: ProfileRow[], ratings: RatingRow[
     category: row.category,
     type: listingTypeUi(row.listing_type),
     price: row.price == null ? undefined : Number(row.price),
+    duration: row.lending_duration_value ?? undefined,
+    durationUnit:
+      row.lending_duration_unit === "Hours" ||
+      row.lending_duration_unit === "Days" ||
+      row.lending_duration_unit === "Weeks"
+        ? row.lending_duration_unit
+        : undefined,
     condition: row.condition,
     location: row.meetup_location,
     posted: formatRelative(row.created_at),

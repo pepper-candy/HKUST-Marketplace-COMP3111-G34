@@ -19,6 +19,7 @@ const files = [
   ["027_reason_not_empty.sql", "Reject/take-down reason: trim-not-empty only"],
   ["028_canvas_deal_flow.sql", "Giveaway first-claim-wins; reserved until buyer marks complete"],
   ["029_borrow_start_not_past.sql", "Borrow start cannot be in the past; 5-second minimum"],
+  ["030_borrow_max_duration.sql", "Borrow request cannot exceed listing lending duration"],
 ];
 
 function stripTx(sql) {
@@ -28,7 +29,7 @@ function stripTx(sql) {
 const parts = [];
 parts.push(`-- HKUST Marketplace — fresh empty database (no demo accounts)
 -- Supabase Dashboard → SQL Editor → paste this whole file → Run.
--- Do not run this on a database that already has 001–029 applied.
+-- Do not run this on a database that already has 001–030 applied.
 -- Do not include service_role / sb_secret keys in the app or in git.
 --
 -- After this file:

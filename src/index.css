@@ -1674,8 +1674,16 @@ footer > span {
   color: var(--navy);
 }
 .detail-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   font: 800 22px "Manrope";
   color: var(--navy);
+}
+.detail-price small {
+  color: var(--muted);
+  font: 600 11px "Manrope";
 }
 .price-and-views {
   display: flex;
