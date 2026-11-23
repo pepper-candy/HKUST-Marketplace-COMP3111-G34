@@ -2583,10 +2583,18 @@ footer > span {
   line-height: 1;
   transition: 0.15s ease;
 }
-.rating-stars button:hover,
 .rating-stars button.selected {
   color: var(--gold);
+}
+.rating-stars:hover button,
+.rating-stars:has(button:focus-visible) button {
+  color: var(--gold);
   transform: translateY(-1px);
+}
+.rating-stars button:hover ~ button,
+.rating-stars button:focus-visible ~ button {
+  color: #d5dbe0;
+  transform: none;
 }
 .rating-dialog label {
   color: #536577;

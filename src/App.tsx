@@ -1260,27 +1260,8 @@ function DetailModal({
                   <Icon name="arrow" size={18} />
                 </button>
                 {role === "Buyer" && listing.type === "Sell" && (
-                  <button
-                    type="button"
-                    className="secondary-action"
-                    onClick={() => {
-                      setFormError("");
-                      setSubmitting(true);
-                      void api
-                        .acceptListingPrice(listing)
-                        .then(() =>
-                          onAction(
-                            `Bought at the listed price. Mark the deal complete on My Deals when you have the item.`,
-                          ),
-                        )
-                        .catch((err) =>
-                          setFormError(err instanceof Error ? err.message : "Could not buy this item."),
-                        )
-                        .finally(() => setSubmitting(false));
-                    }}
-                    disabled={submitting}
-                  >
-                    {submitting ? "Buying..." : "Buy now"}
+                  <button type="button" className="secondary-action" disabled>
+                    Buy now
                   </button>
                 )}
                 <button className="secondary-action" onClick={() => onChat()}>
@@ -2411,7 +2392,7 @@ function RatingDialog({
   onClose: () => void;
   onSubmit: (rating: number, review: string) => void;
 }) {
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(5);
   const [review, setReview] = useState("");
   const [error, setError] = useState("");
 
