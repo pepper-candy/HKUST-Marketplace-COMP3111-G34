@@ -3977,10 +3977,8 @@ function CreateListingForm({
                   name="description"
                   rows={5}
                   required
-                  minLength={20}
                   placeholder="Describe the item, what is included, and anything the buyer or borrower should know..."
                 />
-                <small className="field-helper">Minimum 20 characters</small>
               </label>
 
               {listingType === "Sell" && (
