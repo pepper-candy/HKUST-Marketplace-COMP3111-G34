@@ -138,6 +138,7 @@ export type SellerReview = {
   repliedAt?: string;
   flagged?: boolean;
   flagReason?: string;
+  hidden?: boolean;
 };
 
 export type SystemListing = {
@@ -994,26 +995,25 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       rejectionReason: row.rejection_reason ?? undefined,
     }));
 
-  const sellerReviews: SellerReview[] = ratings
-    .filter((rating) => !rating.hidden)
-    .map((rating) => {
-      const sellerUsername = usernameOf(profiles, rating.seller_id);
-      const listing = listingForRating(rating, offers, listingUiById, profiles);
-      return {
-        id: rating.id,
-        rating: rating.stars,
-        text: rating.review_text ?? "",
-        buyer: usernameOf(profiles, rating.buyer_id),
-        sellerUsername,
-        date: formatDateTime(rating.created_at),
-        dateKey: hongKongDateKey(new Date(rating.created_at)),
-        listing: { ...listing, seller: listing.seller || sellerUsername },
-        reply: rating.seller_reply ?? undefined,
-        repliedAt: rating.replied_at ? formatDateTime(rating.replied_at) : undefined,
-        flagged: rating.flagged,
-        flagReason: rating.flag_reason ?? undefined,
-      };
-    });
+  const sellerReviews: SellerReview[] = ratings.map((rating) => {
+    const sellerUsername = usernameOf(profiles, rating.seller_id);
+    const listing = listingForRating(rating, offers, listingUiById, profiles);
+    return {
+      id: rating.id,
+      rating: rating.stars,
+      text: rating.review_text ?? "",
+      buyer: usernameOf(profiles, rating.buyer_id),
+      sellerUsername,
+      date: formatDateTime(rating.created_at),
+      dateKey: hongKongDateKey(new Date(rating.created_at)),
+      listing: { ...listing, seller: listing.seller || sellerUsername },
+      reply: rating.seller_reply ?? undefined,
+      repliedAt: rating.replied_at ? formatDateTime(rating.replied_at) : undefined,
+      flagged: rating.flagged,
+      flagReason: rating.flag_reason ?? undefined,
+      hidden: rating.hidden,
+    };
+  });
 
   const systemListings: SystemListing[] = listingRows.map((row) => ({
     id: row.id,

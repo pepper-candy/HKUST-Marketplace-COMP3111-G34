@@ -1312,7 +1312,9 @@ function SellerProfileModal({
   const ratingSummary = sellerRatings.find((rating) => rating.seller === seller);
   const profileListings = listings.filter((listing) => listing.seller === seller);
   const profileReviews = reviews.filter(
-    (review) => review.sellerUsername === seller || review.listing.seller === seller,
+    (review) =>
+      !review.hidden &&
+      (review.sellerUsername === seller || review.listing.seller === seller),
   );
   const reviewAverage = profileReviews.length
     ? profileReviews.reduce((sum, review) => sum + review.rating, 0) / profileReviews.length
@@ -5435,6 +5437,7 @@ type SellerReview = {
   repliedAt?: string;
   flagged?: boolean;
   flagReason?: string;
+  hidden?: boolean;
 };
 
 function SellerReviewsPage({
@@ -6285,12 +6288,14 @@ function RatingsOverviewPage({
         reviewInDateRange(review),
     );
   const selectedReviews = selected ? reviewsForSeller(selected) : [];
+  const publicSelectedReviews = selectedReviews.filter((review) => !review.hidden);
   const selectedStarCounts = [5, 4, 3, 2, 1].map(
-    (star) => selectedReviews.filter((review) => review.rating === star).length,
+    (star) => publicSelectedReviews.filter((review) => review.rating === star).length,
   );
-  const selectedReviewTotal = selectedReviews.length;
+  const selectedReviewTotal = publicSelectedReviews.length;
+  const selectedHiddenCount = selectedReviews.length - selectedReviewTotal;
   const selectedAverage = selectedReviewTotal
-    ? selectedReviews.reduce((sum, review) => sum + review.rating, 0) / selectedReviewTotal
+    ? publicSelectedReviews.reduce((sum, review) => sum + review.rating, 0) / selectedReviewTotal
     : 0;
   const platformAverage = ratings.length
     ? ratings.reduce((sum, seller) => sum + seller.average, 0) / ratings.length
@@ -6400,7 +6405,8 @@ function RatingsOverviewPage({
             <p className="eyebrow">SELLER RATING DETAIL</p>
             <h2>{selected.name}</h2>
             <p>
-              @{selected.seller} · {selectedReviewTotal} verified buyer reviews
+              @{selected.seller} · {selectedReviewTotal} public
+              {selectedHiddenCount ? ` · ${selectedHiddenCount} hidden` : ""}
             </p>
             <div className="rating-detail-score">
               <strong>{selectedAverage.toFixed(1)}</strong>
@@ -6426,20 +6432,24 @@ function RatingsOverviewPage({
             </div>
             <div className="rating-detail-reviews">
               {selectedReviews.map((review) => (
-                  <article key={review.id}>
+                  <article
+                    key={review.id}
+                    className={review.hidden ? "is-hidden" : undefined}
+                  >
                     <span>
                       <StarMeter value={review.rating} size={11} /> · @{review.buyer}
+                      {review.hidden ? <em>Hidden</em> : null}
                     </span>
                     <p>{review.text || "No written review."}</p>
                     <button
                       className="secondary-action"
                       onClick={() => {
                         void api
-                          .hideRating(review.id, true)
+                          .hideRating(review.id, !review.hidden)
                           .then(() => onRefresh());
                       }}
                     >
-                      Hide review
+                      {review.hidden ? "Show review" : "Hide review"}
                     </button>
                   </article>
                 ))}
@@ -6882,7 +6892,8 @@ function SupportingPage({
       <SellerReviewsPage
         reviews={sellerReviews.filter(
           (review) =>
-            review.sellerUsername === currentUsername || review.listing.seller === currentUsername,
+            !review.hidden &&
+            (review.sellerUsername === currentUsername || review.listing.seller === currentUsername),
         )}
         onReviewsChange={onSellerReviewsChange}
         onOpenListing={onOpenListing}
