@@ -12,15 +12,17 @@ SET last_action_by = CASE
   WHEN latest.sender_id = o.buyer_id THEN 'buyer'
 END
 FROM public.listings l,
-LATERAL (
-  SELECT m.sender_id
-  FROM public.chat_messages m
-  WHERE m.offer_id = o.id
-    AND m.kind = 'offer'
-  ORDER BY m.created_at DESC, m.id DESC
-  LIMIT 1
-) AS latest
+     (
+       SELECT DISTINCT ON (m.offer_id)
+         m.offer_id,
+         m.sender_id
+       FROM public.chat_messages m
+       WHERE m.kind = 'offer'
+         AND m.offer_id IS NOT NULL
+       ORDER BY m.offer_id, m.created_at DESC, m.id DESC
+     ) AS latest
 WHERE o.listing_id = l.id
+  AND latest.offer_id = o.id
   AND o.status IN ('pending', 'countered')
   AND o.last_action_by IS NULL;
 
