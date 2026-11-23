@@ -62,10 +62,11 @@ If this Supabase project already ran `001` (typical teammate / existing demo DB)
 | If you last ran… | Run next (in order) |
 |---|---|
 | `001` only (before the listings/offers RLS fix) | `002_fix_rls_recursion.sql`, then the later files below as needed |
-| Through `013` (either `013_*.sql`) | `014_direct_listing_purchase.sql` → `015_to_025_apply.sql` → `026_canvas_gaps.sql` |
-| Through `014` | `015_to_025_apply.sql` → `026_canvas_gaps.sql` |
-| Combined `015_to_025_apply.sql` | `026_canvas_gaps.sql` |
-| `026_canvas_gaps.sql` | Nothing else |
+| Through `013` (either `013_*.sql`) | `014_direct_listing_purchase.sql` → `015_to_025_apply.sql` → `026_canvas_gaps.sql` → `027_reason_not_empty.sql` |
+| Through `014` | `015_to_025_apply.sql` → `026_canvas_gaps.sql` → `027_reason_not_empty.sql` |
+| Combined `015_to_025_apply.sql` | `026_canvas_gaps.sql` → `027_reason_not_empty.sql` |
+| `026_canvas_gaps.sql` | `027_reason_not_empty.sql` |
+| `027_reason_not_empty.sql` | Nothing else |
 
 `002` is already folded into current `001` and into `000_init.sql`. Do not re-run `001`. Do not re-run `012` on a live DB that already has later `respond_to_offer` / auto-complete (it would undo those).
 
@@ -106,7 +107,7 @@ Suggested live path: admin approves the fridge + MATH notes → buyer `jason.ng`
 
 ## Incremental SQL files
 
-Numbered files under `supabase/` are the source patches. `000_init.sql` concatenates the non-demo ones for a new empty project (`001`, `008`–`014`, `015_to_025_apply`, `026`). Skip `002` (already in `001`), and skip `003` / `005` / `006` / `007` unless you want demo accounts.
+Numbered files under `supabase/` are the source patches. `000_init.sql` concatenates the non-demo ones for a new empty project (`001`, `008`–`014`, `015_to_025_apply`, `026`, `027`). Skip `002` (already in `001`), and skip `003` / `005` / `006` / `007` unless you want demo accounts.
 
 | File | When |
 |---|---|
@@ -123,6 +124,7 @@ Numbered files under `supabase/` are the source patches. `000_init.sql` concaten
 | `014_direct_listing_purchase.sql` | **Buy now** / accept listed price |
 | `015_to_025_apply.sql` | Chat hide, counters, auto-complete, notify targets, turn owner |
 | `026_canvas_gaps.sql` | Seller-reply notify, listing-edit notify, borrow due reminder, hide-chat RPCs |
+| `027_reason_not_empty.sql` | Reject/take-down reason is written and non-empty (no 10-character floor) |
 
 To rebuild `000_init.sql` after editing those sources: `node supabase/_build_000_init.mjs`.
 

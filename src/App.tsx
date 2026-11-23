@@ -745,8 +745,8 @@ function DetailModal({
   };
 
   const runAdminModeration = (action: "approve" | "reject" | "remove") => {
-    if (action !== "approve" && adminReason.trim().length < 10) {
-      setAdminError("Provide a clear reason of at least 10 characters.");
+    if (action !== "approve" && !adminReason.trim()) {
+      setAdminError("Provide a written reason.");
       return;
     }
     setSubmitting(true);
@@ -1073,7 +1073,6 @@ function DetailModal({
                       placeholder="Be specific and actionable..."
                       autoFocus
                     />
-                    <small>{adminReason.length} characters · minimum 10</small>
                   </label>
                   {adminError && <p className="form-error">{adminError}</p>}
                   <div className="detail-actions">
@@ -4374,8 +4373,8 @@ function ListingReviewPage({
   const reject = (event: React.FormEvent) => {
     event.preventDefault();
     if (!rejecting) return;
-    if (reason.trim().length < 10) {
-      setReasonError("Provide a clear reason of at least 10 characters.");
+    if (!reason.trim()) {
+      setReasonError("Provide a written reason.");
       return;
     }
     void api
@@ -4583,7 +4582,6 @@ function ListingReviewPage({
                 placeholder="Be specific and actionable..."
                 autoFocus
               />
-              <small>{reason.length} characters · minimum 10</small>
             </label>
             {reasonError && <p className="form-error">{reasonError}</p>}
             <div className="confirm-actions">
@@ -5864,8 +5862,8 @@ function AllListingsPage({
   const submitModeration = (event: React.FormEvent) => {
     event.preventDefault();
     if (!moderating) return;
-    if (moderating.action !== "approve" && reason.trim().length < 10) {
-      setError("Provide a reason of at least 10 characters.");
+    if (moderating.action !== "approve" && !reason.trim()) {
+      setError("Provide a written reason.");
       return;
     }
     const nextStatus =

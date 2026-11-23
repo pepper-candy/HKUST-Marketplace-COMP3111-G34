@@ -16,6 +16,7 @@ const files = [
   ["014_direct_listing_purchase.sql", "Buy now / accept listed price"],
   ["015_to_025_apply.sql", "Chat hide, counters, auto-complete, notify targets, turn owner"],
   ["026_canvas_gaps.sql", "Canvas gaps: reply notify, due reminder, listing-edit notify"],
+  ["027_reason_not_empty.sql", "Reject/take-down reason: trim-not-empty only"],
 ];
 
 function stripTx(sql) {

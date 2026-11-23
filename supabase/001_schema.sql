@@ -1004,8 +1004,8 @@ BEGIN
     RETURN;
   END IF;
 
-  IF p_reason IS NULL OR length(trim(p_reason)) < 10 THEN
-    RAISE EXCEPTION 'Provide a written reason of at least 10 characters';
+  IF p_reason IS NULL OR length(trim(p_reason)) = 0 THEN
+    RAISE EXCEPTION 'Provide a written reason';
   END IF;
 
   IF p_action = 'reject' THEN
