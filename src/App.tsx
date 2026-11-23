@@ -50,6 +50,8 @@ function chatOffersForListing(
   buyerName: string,
   role: Role,
 ): ListingOfferItem[] {
+  const resolvedBuyer = buyerName.trim();
+  if (!resolvedBuyer) return [];
   return messages
     .filter((message) =>
       message.kind === "offer" &&
@@ -57,8 +59,8 @@ function chatOffersForListing(
     )
     .map((message) => ({
       id: message.offerId ?? `chat-${message.id}`,
-      buyer: buyerName || (message.sender === "buyer" ? "buyer" : listing.seller),
-      type: /borrow/i.test(message.body) ? "Borrow" : "Offer",
+      buyer: resolvedBuyer,
+      type: /borrow/i.test(message.body) ? "Borrow" : listing.type === "Give Away" ? "Claim" : "Offer",
       detail: unifyOfferCopy(message.body, listing.type),
       status: message.offerStatus ?? "Pending",
     }));
@@ -679,7 +681,16 @@ function DetailModal({
       setSubmitting(true);
       void api
         .submitListingAction(listing, {})
-        .then(() => onAction(`Claim request sent to @${listing.seller}`))
+        .then((offerId) => {
+          if (typeof offerId === "number") {
+            void api.postOfferChatIfBuyerThread(
+              listing.id,
+              api.offerDetailLabel({ type: "Give Away" }),
+              offerId,
+            );
+          }
+          onAction(`Claim request sent to @${listing.seller}`);
+        })
         .catch((err) => {
           setSubmitting(false);
           setFormError(err instanceof Error ? err.message : "This giveaway is no longer available.");
@@ -1498,15 +1509,28 @@ function ChatScreen({
     listing.type !== "Give Away";
 
   const visibleMessages = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = query.trim().toLowerCase().replace(/^@/, "");
+    const counterpartyName = counterparty.trim().toLowerCase();
+    const searchingForPerson =
+      Boolean(normalized) &&
+      Boolean(counterpartyName) &&
+      (counterpartyName.includes(normalized) || normalized.includes(counterpartyName));
     return messages.filter((message) => {
       if (
         message.kind === "message" &&
         message.body.startsWith(CHAT_OFFER_DECLINED_MARKER)
       ) return false;
-      return !normalized || message.body.toLowerCase().includes(normalized);
+      if (!normalized || searchingForPerson) return true;
+      return (
+        message.body.toLowerCase().includes(normalized) ||
+        counterpartyName.includes(normalized)
+      );
     });
-  }, [listing.type, messages, query, role]);
+  }, [counterparty, messages, query]);
+
+  useEffect(() => {
+    setQuery("");
+  }, [listing.id, threadId]);
 
   const sendOptimistic = (message: Omit<ChatMessage, "id" | "time">, kind: "message" | "offer") => {
     if (threadId == null) return;
@@ -1725,8 +1749,18 @@ function ChatScreen({
       return;
     }
     void request
-      .then(() => onRefresh())
-      .then(async () => {
+      .then(async (result) => {
+        if (isClaim && role === "Buyer" && threadId != null) {
+          const claimId = typeof result === "number" ? result : undefined;
+          const sent = await api.sendChatMessage(
+            threadId,
+            api.offerDetailLabel({ type: "Give Away" }),
+            "offer",
+            role,
+            claimId,
+          );
+          onMessagesChange((current) => api.mergeRealtimeChatMessage(current, sent));
+        }
         if (
           role === "Buyer" &&
           action === "Decline" &&
@@ -1748,6 +1782,7 @@ function ChatScreen({
             );
           }
         }
+        return onRefresh();
       })
       .then(() => {
         onFormalOfferSubmitted(listing.id);
@@ -2030,8 +2065,12 @@ function ChatScreen({
           ) : (
             <div className="chat-empty">
               <Icon name="search" size={24} />
-              <strong>No messages found</strong>
-              <span>Try a different word or clear your search.</span>
+              <strong>{query.trim() ? "No messages found" : "No messages yet"}</strong>
+              <span>
+                {query.trim()
+                  ? "Try a different word or clear your search."
+                  : "Send a message to start the conversation."}
+              </span>
             </div>
           )}
         </div>
@@ -2717,7 +2756,7 @@ function MyDealsPage({
           <button className="deal-text-action" onClick={() => onOpenListing(deal.listing)}>
             View listing
           </button>
-          <button className="deal-text-action" onClick={() => onChatListing(deal.listing)}>
+          <button className="deal-text-action" onClick={() => onChatListing(deal.listing, deal.listing.seller)}>
             <Icon name="message" size={15} /> Open chat
           </button>
           <span />
@@ -3956,7 +3995,7 @@ function usernameFromNotification(item: NotificationItem, knownUsernames: string
     if (text.toLowerCase().includes(`@${name.toLowerCase()}`)) return name;
   }
   return text.match(/@([A-Za-z0-9._ -]+?)(?=\s+(?:submitted|offered|asked|claimed|left|is|countered)\b|[“"]|$)/i)?.[1]?.trim()
-    ?? text.match(/@([A-Za-z0-9._-]+)/)?.[1];
+    ?? text.match(/@([A-Za-z0-9._-]+(?:\s+[A-Za-z0-9._-]+)*)/)?.[1]?.trim();
 }
 
 function chatTargetFromNotification(
@@ -7633,11 +7672,25 @@ export default function App() {
           ? currentUserId
           : (buyer?.id ?? (buyerUsername ? await api.profileIdByUsername(buyerUsername) : null));
       const threadId = await api.openChat(listing.id, buyerId ?? undefined);
+      const opened = await api.openChatThread(threadId);
       const messages = await api.loadChatMessages(threadId, role);
+      const genericName = (name?: string) => {
+        const value = name?.trim().toLowerCase() ?? "";
+        return !value || value === "buyer" || value === "seller" || value === "unknown";
+      };
+      const otherName = opened?.participant;
       setChatThreadId(threadId);
       setChatMessages((current) => ({ ...current, [listing.id]: messages }));
       setSelected(null);
-      setChatCounterparty(participant ?? listing.seller);
+      setChatCounterparty(
+        !genericName(otherName)
+          ? otherName!
+          : !genericName(participant)
+            ? participant!
+            : role === "Buyer"
+              ? listing.seller
+              : (otherName || participant || ""),
+      );
       setChatListing(listing);
       if (role === "Buyer") {
         const hasBuyerOffer = buyerDealState.some(

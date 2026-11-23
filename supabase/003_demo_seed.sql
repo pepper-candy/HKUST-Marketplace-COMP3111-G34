@@ -1,5 +1,5 @@
--- Demo marketplace seed (COMP3111 F2026 G34). Additive — do not re-run 001.
--- Dashboard SQL Editor → paste this file → Run.
+-- Demo marketplace seed (COMP3111 F2026 G34). Additive — do not re-run 001 or 000_init.sql.
+-- Run after a fresh 000_init.sql (or after historical 001+). Dashboard SQL Editor → paste → Run.
 -- Logins: demo/accounts.csv (Buyer / Seller portals). Admin stays admin@ust.hk.
 -- Safe to re-run: wipes only the 13 demo UUIDs below, then inserts again.
 

@@ -465,11 +465,12 @@ function formatDateTime(iso: string) {
 }
 
 export function offerDetailLabel(input: {
-  type: Listing["type"] | "Sell" | "Lend";
+  type: Listing["type"] | "Sell" | "Lend" | "Give Away";
   price?: number;
   start?: string;
   end?: string;
 }) {
+  if (input.type === "Give Away") return "Claim: free";
   if (input.type === "Lend") {
     const start = input.start ? formatDateTime(new Date(input.start).toISOString()) : "";
     const end = input.end ? formatDateTime(new Date(input.end).toISOString()) : "";
@@ -1295,16 +1296,8 @@ export async function postOfferChatIfBuyerThread(
   offerId: number,
 ) {
   try {
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return;
-    const { data: thread } = await supabase
-      .from("chat_threads")
-      .select("id")
-      .eq("listing_id", listingId)
-      .eq("buyer_id", auth.user.id)
-      .maybeSingle();
-    if (!thread?.id) return;
-    await sendChatMessage(thread.id, body, "offer", "Buyer", offerId);
+    const threadId = await openChat(listingId);
+    await sendChatMessage(threadId, body, "offer", "Buyer", offerId);
   } catch {
     /* The offer row is already saved; chat sync must not fail the submit. */
   }
@@ -1679,8 +1672,7 @@ export async function listListingChatPeople(listingId: number) {
   if (!validThreads.length) return [];
 
   const { data: profiles } = await supabase.from("profiles").select("id, username");
-  const usernameOfId = (id: string) =>
-    (profiles ?? []).find((profile) => profile.id === id)?.username ?? "buyer";
+  const usernameOfId = (id: string) => usernameOf((profiles ?? []) as ProfileRow[], id);
 
   const { data: messages } = await supabase
     .from("chat_messages")
@@ -1791,8 +1783,7 @@ export async function openChatThread(threadId: number) {
   const { data: profiles } = await supabase.from("profiles").select("*");
   const profileRows = (profiles ?? []) as ProfileRow[];
   const otherId = thread.buyer_id === auth.user.id ? thread.seller_id : thread.buyer_id;
-  const participant =
-    profileRows.find((profile) => profile.id === otherId)?.username ?? "buyer";
+  const participant = usernameOf(profileRows, otherId as string);
 
   return {
     listing: mapListing(listingRow as ListingRow, profileRows, []),
