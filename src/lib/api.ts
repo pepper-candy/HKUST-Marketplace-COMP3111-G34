@@ -107,6 +107,7 @@ export type ReviewListing = {
   submitted: string;
   status: "Pending Review" | "Approved" | "Rejected" | "Removed";
   rejectionReason?: string;
+  reportReason?: string;
 };
 
 export type SellerListingStatus =
@@ -944,7 +945,15 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
 
   await supabase.rpc("expire_overdue_borrows");
 
-  const [profilesRes, listingsRes, offersRes, ratingsRes, notificationsRes, offerMessagesRes] = await Promise.all([
+  const [
+    profilesRes,
+    listingsRes,
+    offersRes,
+    ratingsRes,
+    notificationsRes,
+    offerMessagesRes,
+    reportsRes,
+  ] = await Promise.all([
     supabase.from("profiles").select("*"),
     supabase.from("listings").select("*").order("created_at", { ascending: false }),
     supabase.from("offers").select("*").order("created_at", { ascending: false }),
@@ -960,6 +969,10 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       .eq("kind", "offer")
       .not("offer_id", "is", null)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("listing_reports")
+      .select("listing_id, reason, created_at")
+      .order("created_at", { ascending: false }),
   ]);
 
   throwIf(profilesRes.error);
@@ -968,6 +981,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   throwIf(ratingsRes.error);
   throwIf(notificationsRes.error);
   throwIf(offerMessagesRes.error);
+  throwIf(reportsRes.error);
 
   const profiles = (profilesRes.data ?? []) as ProfileRow[];
   const listingRows = (listingsRes.data ?? []) as ListingRow[];
@@ -1076,14 +1090,24 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
 
   const notifications: NotificationItem[] = notificationRows.map((row) => notificationFromRow(row));
 
+  const reportReasonByListing = new Map<number, string>();
+  for (const report of reportsRes.data ?? []) {
+    const listingId = Number(report.listing_id);
+    const reason = typeof report.reason === "string" ? report.reason.trim() : "";
+    if (!listingId || !reason || reportReasonByListing.has(listingId)) continue;
+    reportReasonByListing.set(listingId, reason);
+  }
+
   const reviewListings: ReviewListing[] = listingRows.map((row) => {
     const listing = listingUiById.get(row.id)!;
+    const reportReason = reportReasonByListing.get(row.id);
+    const reportedLive = Boolean(reportReason) && ["live", "reserved"].includes(row.status);
     const status: ReviewListing["status"] =
       row.status === "removed"
         ? "Removed"
         : row.status === "rejected"
           ? "Rejected"
-          : row.status === "pending"
+          : row.status === "pending" || reportedLive
             ? "Pending Review"
             : "Approved";
     return {
@@ -1093,6 +1117,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       submitted: formatDateTime(row.created_at),
       status,
       rejectionReason: row.rejection_reason ?? undefined,
+      reportReason,
     };
   });
 

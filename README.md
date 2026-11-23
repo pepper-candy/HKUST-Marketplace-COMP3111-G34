@@ -62,14 +62,15 @@ If this Supabase project already ran `001` (typical teammate / existing demo DB)
 | If you last ran… | Run next (in order) |
 |---|---|
 | `001` only (before the listings/offers RLS fix) | `002_fix_rls_recursion.sql`, then the later files below as needed |
-| Through `013` (either `013_*.sql`) | `014_direct_listing_purchase.sql` → `015_to_025_apply.sql` → `026_canvas_gaps.sql` → `027_reason_not_empty.sql` → `028_canvas_deal_flow.sql` → `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` |
-| Through `014` | `015_to_025_apply.sql` → `026_canvas_gaps.sql` → `027_reason_not_empty.sql` → `028_canvas_deal_flow.sql` → `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` |
-| Combined `015_to_025_apply.sql` | `026_canvas_gaps.sql` → `027_reason_not_empty.sql` → `028_canvas_deal_flow.sql` → `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` |
-| `026_canvas_gaps.sql` | `027_reason_not_empty.sql` → `028_canvas_deal_flow.sql` → `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` |
-| `027_reason_not_empty.sql` | `028_canvas_deal_flow.sql` → `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` |
-| `028_canvas_deal_flow.sql` | `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` |
-| `029_borrow_start_not_past.sql` | `030_borrow_max_duration.sql` |
-| `030_borrow_max_duration.sql` | Nothing else |
+| Through `013` (either `013_*.sql`) | `014_direct_listing_purchase.sql` → `015_to_025_apply.sql` → `026_canvas_gaps.sql` → `027_reason_not_empty.sql` → `028_canvas_deal_flow.sql` → `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` → `031_report_includes_reason.sql` |
+| Through `014` | `015_to_025_apply.sql` → `026_canvas_gaps.sql` → `027_reason_not_empty.sql` → `028_canvas_deal_flow.sql` → `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` → `031_report_includes_reason.sql` |
+| Combined `015_to_025_apply.sql` | `026_canvas_gaps.sql` → `027_reason_not_empty.sql` → `028_canvas_deal_flow.sql` → `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` → `031_report_includes_reason.sql` |
+| `026_canvas_gaps.sql` | `027_reason_not_empty.sql` → `028_canvas_deal_flow.sql` → `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` → `031_report_includes_reason.sql` |
+| `027_reason_not_empty.sql` | `028_canvas_deal_flow.sql` → `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` → `031_report_includes_reason.sql` |
+| `028_canvas_deal_flow.sql` | `029_borrow_start_not_past.sql` → `030_borrow_max_duration.sql` → `031_report_includes_reason.sql` |
+| `029_borrow_start_not_past.sql` | `030_borrow_max_duration.sql` → `031_report_includes_reason.sql` |
+| `030_borrow_max_duration.sql` | `031_report_includes_reason.sql` |
+| `031_report_includes_reason.sql` | Nothing else |
 
 `002` is already folded into current `001` and into `000_init.sql`. Do not re-run `001`. Do not re-run `012` on a live DB that already has later `respond_to_offer` / auto-complete (it would undo those).
 
@@ -110,7 +111,7 @@ Suggested live path: admin approves the fridge + MATH notes → buyer `jason.ng`
 
 ## Incremental SQL files
 
-Numbered files under `supabase/` are the source patches. `000_init.sql` concatenates the non-demo ones for a new empty project (`001`, `008`–`014`, `015_to_025_apply`, `026`–`030`). Skip `002` (already in `001`), and skip `003` / `005` / `006` / `007` unless you want demo accounts.
+Numbered files under `supabase/` are the source patches. `000_init.sql` concatenates the non-demo ones for a new empty project (`001`, `008`–`014`, `015_to_025_apply`, `026`–`031`). Skip `002` (already in `001`), and skip `003` / `005` / `006` / `007` unless you want demo accounts.
 
 | File | When |
 |---|---|
@@ -131,6 +132,7 @@ Numbered files under `supabase/` are the source patches. `000_init.sql` concaten
 | `028_canvas_deal_flow.sql` | Giveaway first-claim-wins; sell/lend Accept reserves; buyer marks complete then rates |
 | `029_borrow_start_not_past.sql` | Borrow start cannot be in the past; end at least 5 seconds after start |
 | `030_borrow_max_duration.sql` | Borrow request cannot exceed the listing lending duration |
+| `031_report_includes_reason.sql` | Admin report notification includes the written report reason |
 
 To rebuild `000_init.sql` after editing those sources: `node supabase/_build_000_init.mjs`.
 

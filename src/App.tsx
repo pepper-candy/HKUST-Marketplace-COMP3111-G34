@@ -4412,6 +4412,7 @@ type ReviewListing = {
   submitted: string;
   status: "Pending Review" | "Approved" | "Rejected" | "Removed";
   rejectionReason?: string;
+  reportReason?: string;
 };
 
 function ListingReviewPage({
@@ -4542,6 +4543,12 @@ function ListingReviewPage({
                       <dd>{record.listing.location}</dd>
                     </div>
                   </dl>
+                  {record.reportReason && (
+                    <div className="rejection-note">
+                      <strong>Report reason</strong>
+                      <p>{record.reportReason}</p>
+                    </div>
+                  )}
                   {record.rejectionReason && (
                     <div className="rejection-note">
                       <strong>Rejection reason</strong>
@@ -4575,16 +4582,28 @@ function ListingReviewPage({
                         >
                           Reject
                         </button>
-                        <button
-                          className="primary-action"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setApproving(record);
-                          }}
-                        >
-                          <Icon name="check" size={15} />
-                          Approve
-                        </button>
+                        {record.reportReason ? (
+                          <button
+                            className="primary-action"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onOpenListing(record.listing);
+                            }}
+                          >
+                            Review
+                          </button>
+                        ) : (
+                          <button
+                            className="primary-action"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setApproving(record);
+                            }}
+                          >
+                            <Icon name="check" size={15} />
+                            Approve
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

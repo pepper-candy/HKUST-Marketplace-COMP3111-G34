@@ -4026,6 +4026,7 @@ footer > span {
   color: #647485;
   font-size: 9px;
   line-height: 1.45;
+  white-space: pre-line;
 }
 .notification-side {
   min-width: 128px;
