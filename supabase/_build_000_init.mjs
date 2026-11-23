@@ -17,6 +17,7 @@ const files = [
   ["015_to_025_apply.sql", "Chat hide, counters, auto-complete, notify targets, turn owner"],
   ["026_canvas_gaps.sql", "Canvas gaps: reply notify, due reminder, listing-edit notify"],
   ["027_reason_not_empty.sql", "Reject/take-down reason: trim-not-empty only"],
+  ["028_canvas_deal_flow.sql", "Giveaway first-claim-wins; reserved until buyer marks complete"],
 ];
 
 function stripTx(sql) {
@@ -26,7 +27,7 @@ function stripTx(sql) {
 const parts = [];
 parts.push(`-- HKUST Marketplace — fresh empty database (no demo accounts)
 -- Supabase Dashboard → SQL Editor → paste this whole file → Run.
--- Do not run this on a database that already has 001–026 applied.
+-- Do not run this on a database that already has 001–028 applied.
 -- Do not include service_role / sb_secret keys in the app or in git.
 --
 -- After this file:

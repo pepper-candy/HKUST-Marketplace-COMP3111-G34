@@ -733,7 +733,9 @@ function DetailModal({
               offerId,
             );
           }
-          onAction(`Claim request sent to @${listing.seller}`);
+          onAction(
+            `Claimed ${listing.title}. First claim won — mark the deal complete on My Deals when you have the item.`,
+          );
         })
         .catch((err) => {
           setSubmitting(false);
@@ -1201,16 +1203,32 @@ function DetailModal({
               {formError && <p className="form-error listing-form-error">{formError}</p>}
               {(listing.availability === "Available" || listing.availability == null) && (
               <div className="detail-actions">
+                <button className="primary-action" onClick={openAction} disabled={submitting}>
+                  {submitting
+                    ? listing.type === "Give Away"
+                      ? "Claiming..."
+                      : "Sending..."
+                    : listing.type === "Sell"
+                      ? "Send Offer / Bid"
+                      : listing.type === "Lend"
+                        ? "Request to Borrow"
+                        : "Claim Item"}
+                  <Icon name="arrow" size={18} />
+                </button>
                 {role === "Buyer" && listing.type === "Sell" && (
                   <button
                     type="button"
-                    className="primary-action"
+                    className="secondary-action"
                     onClick={() => {
                       setFormError("");
                       setSubmitting(true);
                       void api
                         .acceptListingPrice(listing)
-                        .then(() => onAction(`Purchase confirmed for ${listing.title}`))
+                        .then(() =>
+                          onAction(
+                            `Bought at the listed price. Mark the deal complete on My Deals when you have the item.`,
+                          ),
+                        )
                         .catch((err) =>
                           setFormError(err instanceof Error ? err.message : "Could not buy this item."),
                         )
@@ -1219,19 +1237,8 @@ function DetailModal({
                     disabled={submitting}
                   >
                     {submitting ? "Buying..." : "Buy now"}
-                    <Icon name="arrow" size={18} />
                   </button>
                 )}
-                <button className="primary-action" onClick={openAction} disabled={submitting}>
-                  {submitting
-                    ? "Sending..."
-                    : listing.type === "Sell"
-                      ? "Send Offer / Bid"
-                      : listing.type === "Lend"
-                        ? "Request to Borrow"
-                        : "Claim Item"}
-                  <Icon name="arrow" size={18} />
-                </button>
                 <button className="secondary-action" onClick={() => onChat()}>
                   <Icon name="message" size={18} />
                   Chat
@@ -1850,9 +1857,9 @@ function ChatScreen({
         );
         onAction(
           isClaim
-            ? `Claim sent to @${counterparty}`
+            ? `Claimed ${listing.title}. First claim won — mark the deal complete on My Deals when you have the item.`
             : action === "Buy"
-              ? `Purchase completed for ${listing.title}`
+              ? `Bought at the listed price. Mark the deal complete on My Deals when you have the item.`
               : action === "Accept"
                 ? `Offer accepted. @${counterparty} was notified.`
                 : `Offer declined. @${counterparty} was notified.`,
@@ -1943,6 +1950,7 @@ function ChatScreen({
               const buyerCanClaim =
                 role === "Buyer" &&
                 listing.type === "Give Away" &&
+                (listing.availability === "Available" || listing.availability == null) &&
                 message.kind === "offer" &&
                 message.sender === "seller" &&
                 !stale &&
@@ -2243,17 +2251,17 @@ function ChatScreen({
               {listing.type === "Give Away"
                 ? "Claim this item?"
                 : confirming.action === "Buy"
-                  ? "Complete this purchase?"
+                  ? "Buy at the listed price?"
                   : `${confirming.action} this ${listing.type === "Lend" ? "borrow request" : "offer"}?`}
             </h2>
             <p>
               {listing.type === "Give Away"
-                ? `@${counterparty} will be notified so you can arrange a meetup.`
+                ? "First claim wins. The listing is reserved until you mark the deal complete on My Deals. Chat is optional."
                 : confirming.action === "Buy"
-                  ? `Buy this item at the seller’s listed price of HK$${listing.price?.toLocaleString()}. The deal will be completed immediately.`
+                  ? `Buy this item at the seller's listed price of HK$${listing.price?.toLocaleString()}. The listing is reserved until you mark the deal complete on My Deals.`
                   : confirming.action === "Accept"
-                  ? `The listing status will update and @${counterparty} will be notified.`
-                  : `The request will close and @${counterparty} will be notified.`}
+                    ? `The listing status will update and @${counterparty} will be notified.`
+                    : `The request will close and @${counterparty} will be notified.`}
             </p>
             <div className="confirm-actions">
               <button
@@ -2273,7 +2281,7 @@ function ChatScreen({
                 {listing.type === "Give Away"
                   ? "Claim item"
                   : confirming.action === "Buy"
-                    ? "Complete purchase"
+                    ? "Buy now"
                     : `${confirming.action} offer`}
               </button>
             </div>
@@ -2538,6 +2546,7 @@ function MyDealsPage({
   onRefresh: () => Promise<unknown>;
 }) {
   const [ratingDeal, setRatingDeal] = useState<BuyerDeal | null>(null);
+  const [completingDealId, setCompletingDealId] = useState<number | null>(null);
   const [acceptingDealId, setAcceptingDealId] = useState<number | null>(null);
   const [decliningDealId, setDecliningDealId] = useState<number | null>(null);
   const [counteringDeal, setCounteringDeal] = useState<BuyerDeal | null>(null);
@@ -2604,13 +2613,37 @@ function MyDealsPage({
       .catch((err) => onAction(err instanceof Error ? err.message : "Could not return item."));
   };
 
+  const markComplete = (deal: BuyerDeal) => {
+    if (completingDealId !== null) return;
+    setCompletingDealId(deal.id);
+    void api
+      .completeDeal(deal.id)
+      .then(() => {
+        onDealsChange(
+          deals.map((item) =>
+            item.id === deal.id
+              ? { ...item, status: "Completed", completed: true }
+              : item,
+          ),
+        );
+        return onRefresh();
+      })
+      .then(() => {
+        setTab("Completed");
+        if (!ratedDealIds.includes(deal.id)) setRatingDeal({ ...deal, status: "Completed", completed: true });
+        onAction(`${deal.listing.title} marked complete. Rate the seller when you are ready.`);
+      })
+      .catch((err) => onAction(err instanceof Error ? err.message : "Could not complete deal."))
+      .finally(() => setCompletingDealId(null));
+  };
+
   const acceptCounter = async (deal: BuyerDeal) => {
     if (acceptingDealId !== null) return;
     setAcceptingDealId(deal.id);
     try {
       await api.acceptCounterOffer(deal.id);
       const acceptedStatus =
-        deal.kind === "Borrow" ? "Borrowed" : "Completed";
+        deal.kind === "Borrow" ? "Borrowed" : "Accepted";
       onDealsChange(
         deals.map((item) =>
           item.id === deal.id
@@ -2618,7 +2651,7 @@ function MyDealsPage({
                 ...item,
                 status: acceptedStatus,
                 detail: `${item.detail ? `${item.detail} · ` : ""}Buyer accepted the counter offer`,
-                completed: deal.kind !== "Borrow",
+                completed: false,
               }
             : item,
         ),
@@ -2802,6 +2835,18 @@ function MyDealsPage({
           {deal.kind === "Borrow" && !deal.completed && (
             <button className="secondary-action" onClick={() => markReturned(deal)}>
               Return early
+            </button>
+          )}
+          {(deal.kind === "Offer" || deal.kind === "Claim") &&
+            deal.status === "Accepted" &&
+            !deal.completed && (
+            <button
+              type="button"
+              className="primary-action"
+              disabled={completingDealId === deal.id}
+              onClick={() => markComplete(deal)}
+            >
+              {completingDealId === deal.id ? "Completing…" : "Mark complete"}
             </button>
           )}
           {deal.status === "Countered" && !deal.completed && (
@@ -3294,15 +3339,10 @@ function SellerRequestsPage({
                 status === "Accepted"
                   ? request.type === "Borrow"
                     ? "Borrowed"
-                    : "Completed"
+                    : "Accepted"
                   : status,
               detail,
-              completed:
-                status === "Declined"
-                  ? false
-                  : status === "Accepted"
-                    ? request.type !== "Borrow"
-                    : false,
+              completed: false,
             }
           : deal,
       ),
@@ -3313,7 +3353,7 @@ function SellerRequestsPage({
     if (!confirming || busy) return;
     const { request, action } = confirming;
     const acceptedStatus =
-      request.type === "Offer" ? "Reserved" : request.type === "Borrow" ? "Lent" : "Given";
+      request.type === "Borrow" ? "Lent" : "Reserved";
     const nextStatus = action === "Accept" ? "Accepted" : "Declined";
     setBusy(true);
     void api
@@ -3398,7 +3438,10 @@ function SellerRequestsPage({
   };
 
   const pendingCount = availableRequests.filter(
-    (request) => request.status === "Pending" && request.lastActionBy !== "seller",
+    (request) =>
+      request.type !== "Claim" &&
+      request.status === "Pending" &&
+      request.lastActionBy !== "seller",
   ).length;
 
   return (
@@ -3547,7 +3590,8 @@ function SellerRequestsPage({
                   </button>
                   <span />
                   {(request.status === "Pending" || request.status === "Countered") &&
-                    request.lastActionBy !== "seller" && (
+                    request.lastActionBy !== "seller" &&
+                    request.type !== "Claim" && (
                     <>
                       <button
                         className="request-decline"
@@ -3556,18 +3600,16 @@ function SellerRequestsPage({
                       >
                         Decline
                       </button>
-                      {request.type !== "Claim" && (
-                        <button
-                          className="secondary-action"
-                          disabled={busy}
-                          onClick={() => {
-                            setCountering(request);
-                            setFormError("");
-                          }}
-                        >
-                          Counter
-                        </button>
-                      )}
+                      <button
+                        className="secondary-action"
+                        disabled={busy}
+                        onClick={() => {
+                          setCountering(request);
+                          setFormError("");
+                        }}
+                      >
+                        Counter
+                      </button>
                       <button
                         className="primary-action"
                         disabled={busy}
@@ -3576,6 +3618,9 @@ function SellerRequestsPage({
                         Accept
                       </button>
                     </>
+                  )}
+                  {request.type === "Claim" && request.status === "Accepted" && (
+                    <span className="review-submitted-badge">First claim won</span>
                   )}
                 </div>
               </div>

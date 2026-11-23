@@ -681,9 +681,11 @@ function buyerDealStatus(offer: OfferRow, listing: ListingRow) {
   if (offer.status === "declined" || offer.status === "cancelled") return "Declined";
   if (offer.status === "returned") return "Returned";
   if (offer.status === "completed") return "Completed";
-  if (offer.kind === "offer") return "Completed";
-  if (offer.kind === "borrow") return "Borrowed";
-  return "Completed";
+  if (offer.status === "accepted") {
+    if (offer.kind === "borrow") return "Borrowed";
+    return "Accepted";
+  }
+  return "Pending";
 }
 
 export async function registerAccount(input: {
@@ -909,9 +911,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       const listing = listingUiById.get(offer.listing_id);
       if (!listingRow || !listing) return null;
       const status = buyerDealStatus(offer, listingRow);
-      const completed =
-        ["completed", "returned"].includes(offer.status) ||
-        (offer.status === "accepted" && offer.kind !== "borrow");
+      const completed = ["completed", "returned"].includes(offer.status);
       return {
         id: offer.id,
         listing,
@@ -1357,51 +1357,7 @@ export async function acceptListingPrice(listing: Listing) {
   const { data, error } = await supabase.rpc("accept_listing_price", {
     p_listing_id: listing.id,
   });
-  if (error) {
-    const message = rpcMessage(error);
-    if (message.includes("accept_listing_price") && message.includes("schema cache")) {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) throw new Error("Please sign in again.");
-
-      await supabase.rpc("open_chat_thread", { p_listing_id: listing.id });
-
-      const { data: offers, error: offersError } = await supabase
-        .from("offers")
-        .select("id,status,price,detail")
-        .eq("listing_id", listing.id)
-        .eq("buyer_id", auth.user.id)
-        .in("status", ["pending", "countered"]);
-
-      throwIf(offersError);
-      const listedPriceOffer = (offers ?? []).find((offer) => {
-        if (listing.price == null) return false;
-        const priceMatches = Number(offer.price) === listing.price;
-        const detailMatches =
-          typeof offer.detail === "string" &&
-          offer.detail.toLowerCase().includes(`hk$${listing.price}`);
-        return offer.status === "countered" && (priceMatches || detailMatches);
-      });
-
-      if (!listedPriceOffer) {
-        throw new Error(
-          "This listing could not be purchased directly yet. Refresh and try again.",
-        );
-      }
-
-      const { error: acceptError } = await supabase.rpc("accept_counter_offer", {
-        p_offer_id: listedPriceOffer.id,
-      });
-      if (acceptError) throw new Error(rpcMessage(acceptError));
-      const { error: completeError } = await supabase.rpc("complete_deal", {
-        p_offer_id: listedPriceOffer.id,
-        p_stars: null,
-        p_review: null,
-      });
-      if (completeError) throw new Error(rpcMessage(completeError));
-      return listedPriceOffer.id;
-    }
-    throw new Error(message);
-  }
+  if (error) throw new Error(rpcMessage(error));
   return data as number;
 }
 
