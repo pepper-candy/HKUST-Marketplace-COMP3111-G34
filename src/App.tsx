@@ -505,12 +505,9 @@ function Browse({
       <div className="filter-row">
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
           <option>All categories</option>
-          <option>Electronics</option>
-          <option>Books & Course Materials</option>
-          <option>Furniture & Home</option>
-          <option>Fashion & Accessories</option>
-          <option>Sports & Outdoors</option>
-          <option>Other</option>
+          {api.LISTING_CATEGORIES.map((name) => (
+            <option key={name}>{name}</option>
+          ))}
         </select>
         <select value={type} onChange={(e) => setType(e.target.value)}>
           <option>All types</option>
@@ -1953,7 +1950,7 @@ function ChatScreen({
                           type="button"
                           className="request-decline"
                           disabled={acting}
-                          onClick={() => setConfirming({ offerId, action: "Decline" })}
+                          onClick={() => setConfirming({ offerId: offerId ?? null, action: "Decline" })}
                         >
                           Decline
                         </button>
@@ -1974,13 +1971,15 @@ function ChatScreen({
                           className="primary-action"
                           disabled={acting}
                           onClick={() => {
-                            const offerPrice = listing.type === "Sell"
+                            const parsedPrice = listing.type === "Sell"
                               ? Number((message.body.match(/HK\$\s*([\d,.]+)/)?.[1] ?? "").replace(/,/g, ""))
                               : undefined;
                             setConfirming({
-                              offerId,
+                              offerId: offerId ?? null,
                               action: "Accept",
-                              ...(offerId == null && offerPrice > 0 ? { offerPrice } : {}),
+                              ...(offerId == null && parsedPrice != null && parsedPrice > 0
+                                ? { offerPrice: parsedPrice }
+                                : {}),
                             });
                           }}
                         >
@@ -1994,7 +1993,7 @@ function ChatScreen({
                           type="button"
                           className="request-decline"
                           disabled={acting}
-                          onClick={() => setConfirming({ offerId, action: "Decline" })}
+                          onClick={() => setConfirming({ offerId: offerId ?? null, action: "Decline" })}
                         >
                           Decline
                         </button>
@@ -2014,7 +2013,7 @@ function ChatScreen({
                           type="button"
                           className="primary-action"
                           disabled={acting}
-                          onClick={() => setConfirming({ offerId, action: "Accept" })}
+                          onClick={() => setConfirming({ offerId: offerId ?? null, action: "Accept" })}
                         >
                           Accept offer
                         </button>
@@ -2500,14 +2499,18 @@ function MyDealsPage({
 
   const deleteChat = async (thread: api.MyChatThread) => {
     if (deletingChatId !== null) return;
-    if (!window.confirm(`Delete the chat with @${thread.counterparty} about "${thread.listing.title}"?`)) {
+    if (
+      !window.confirm(
+        `Hide the chat with @${thread.counterparty} about "${thread.listing.title}" from your inbox? Messages are kept.`,
+      )
+    ) {
       return;
     }
     setDeletingChatId(thread.id);
     try {
       await api.deleteChatThread(thread.id);
       setChats((current) => current.filter((chat) => chat.id !== thread.id));
-      onAction("Chat deleted");
+      onAction("Chat hidden from your inbox");
     } catch (err) {
       onAction(err instanceof Error ? err.message : "Could not delete chat.");
     } finally {
@@ -2910,7 +2913,7 @@ function MyDealsPage({
                         disabled={deletingChatId === thread.id}
                         onClick={() => void deleteChat(thread)}
                       >
-                        {deletingChatId === thread.id ? "Deleting…" : "Delete chat"}
+                        {deletingChatId === thread.id ? "Hiding…" : "Hide chat"}
                       </button>
                     </div>
                   </div>
@@ -3032,9 +3035,9 @@ function DealHistoryPage({
           Category
           <select value={category} onChange={(event) => setCategory(event.target.value)}>
             <option>All categories</option>
-            <option>Electronics</option>
-            <option>Books</option>
-            <option>Sports</option>
+            {api.LISTING_CATEGORIES.map((name) => (
+              <option key={name}>{name}</option>
+            ))}
           </select>
         </label>
         <label>
@@ -3191,7 +3194,8 @@ function SellerRequestsPage({
   const [busy, setBusy] = useState(false);
 
   const availableRequests = requests.filter(
-    (request) => request.listingStatus === "Available",
+    (request) =>
+      request.listingStatus === "Available" || request.listingStatus === "Reserved",
   );
   const visibleRequests =
     filter === "All"
@@ -3780,12 +3784,9 @@ function CreateListingForm({
                   <option value="" disabled>
                     Select a category
                   </option>
-                  <option>Electronics</option>
-                  <option>Books & Course Materials</option>
-                  <option>Furniture & Home</option>
-                  <option>Fashion & Accessories</option>
-                  <option>Sports & Outdoors</option>
-                  <option>Other</option>
+                  {api.LISTING_CATEGORIES.map((name) => (
+                    <option key={name}>{name}</option>
+                  ))}
                 </select>
               </label>
               <label>
@@ -4950,7 +4951,6 @@ function SellerListingsPage({
         .catch((err) => onAction(err instanceof Error ? err.message : "Could not delete listing."));
     } else {
       openEdit(record);
-      onAction(`Affected buyers for ${record.listing.title} will be notified of saved changes`);
     }
     setConfirming(null);
   };
@@ -4992,7 +4992,7 @@ function SellerListingsPage({
     void (async () => {
       try {
         const photoUrls = await api.uploadListingPhotos(editPhotos);
-        await api.updateListingDetails(editing.listing.id, {
+        const notified = await api.updateListingDetails(editing.listing.id, {
           title: editTitle.trim(),
           category: editCategory,
           condition: editCondition,
@@ -5005,7 +5005,9 @@ function SellerListingsPage({
         onAction(
           editing.status === "Rejected"
             ? `${editTitle} resubmitted with status Pending`
-            : `${editTitle} updated`,
+            : notified > 0
+              ? `${editTitle} updated. ${notified} buyer${notified === 1 ? "" : "s"} with an active offer notified.`
+              : `${editTitle} updated`,
         );
         setEditing(null);
       } catch (err) {
@@ -5021,6 +5023,7 @@ function SellerListingsPage({
     "Pending",
     "Live",
     "Rejected",
+    "Reserved",
     "Sold",
     "Lent",
     "Given",
@@ -5199,11 +5202,13 @@ function SellerListingsPage({
                   value={editCategory}
                   onChange={(event) => setEditCategory(event.target.value)}
                 >
-                  <option>Electronics</option>
-                  <option>Books</option>
-                  <option>Sports</option>
-                  <option>Furniture</option>
-                  <option>Other</option>
+                  {(api.LISTING_CATEGORIES as readonly string[]).includes(editCategory)
+                    ? api.LISTING_CATEGORIES.map((name) => (
+                        <option key={name}>{name}</option>
+                      ))
+                    : [editCategory, ...api.LISTING_CATEGORIES].map((name) => (
+                        <option key={name}>{name}</option>
+                      ))}
                 </select>
               </label>
               <label>
@@ -5351,6 +5356,7 @@ type SellerReview = {
   buyer: string;
   sellerUsername: string;
   date: string;
+  dateKey: string;
   listing: Listing;
   reply?: string;
   repliedAt?: string;
@@ -6183,13 +6189,25 @@ function RatingsOverviewPage({
 }) {
   const [query, setQuery] = useState("");
   const [rating, setRating] = useState("All ratings");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [selected, setSelected] = useState<SellerRating | null>(null);
-  const visible = ratings.filter(
-    (seller) =>
-      (seller.seller.includes(query.toLowerCase()) ||
-        seller.name.toLowerCase().includes(query.toLowerCase())) &&
-      (rating === "All ratings" || seller.average >= Number(rating)),
-  );
+  const reviewInDateRange = (review: SellerReview) =>
+    (!fromDate || review.dateKey >= fromDate) && (!toDate || review.dateKey <= toDate);
+  const visible = ratings.filter((seller) => {
+    const matchesUser =
+      seller.seller.toLowerCase().includes(query.toLowerCase()) ||
+      seller.name.toLowerCase().includes(query.toLowerCase());
+    const matchesScore = rating === "All ratings" || seller.average >= Number(rating);
+    const matchesDate =
+      (!fromDate && !toDate) ||
+      reviews.some(
+        (review) =>
+          (review.sellerUsername === seller.seller || review.listing.seller === seller.seller) &&
+          reviewInDateRange(review),
+      );
+    return matchesUser && matchesScore && matchesDate;
+  });
   const platformAverage = ratings.length
     ? ratings.reduce((sum, seller) => sum + seller.average, 0) / ratings.length
     : 0;
@@ -6226,6 +6244,14 @@ function RatingsOverviewPage({
           <option value="4.5">4.5+ stars</option>
           <option value="4">4.0+ stars</option>
         </select>
+        <label>
+          From
+          <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+        </label>
+        <label>
+          To
+          <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+        </label>
       </div>
       <div className="ratings-grid">
         {visible.map((seller) => (
@@ -6272,12 +6298,14 @@ function RatingsOverviewPage({
         <div className="empty-state admin-oversight-empty">
           <Icon name="star" size={28} />
           <h3>No sellers found</h3>
-          <p>Try changing the seller or rating filter.</p>
+          <p>Try changing the seller, rating, or date filter.</p>
           <button
             className="secondary-action"
             onClick={() => {
               setQuery("");
               setRating("All ratings");
+              setFromDate("");
+              setToDate("");
             }}
           >
             Clear rating filters
@@ -6316,8 +6344,9 @@ function RatingsOverviewPage({
               {reviews
                 .filter(
                   (review) =>
-                    review.sellerUsername === selected.seller ||
-                    review.listing.seller === selected.seller,
+                    (review.sellerUsername === selected.seller ||
+                      review.listing.seller === selected.seller) &&
+                    reviewInDateRange(review),
                 )
                 .map((review) => (
                   <article key={review.id}>

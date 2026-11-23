@@ -1,7 +1,12 @@
--- Run once in the Supabase SQL Editor after 012–014.
--- Deletes a chat only when it belongs to the signed-in buyer or seller.
+-- Hide a chat from the signed-in buyer's or seller's inbox.
+-- Messages stay in the database and remain searchable. Run 026_canvas_gaps.sql
+-- on databases that already applied an older DELETE version of this file.
 
-CREATE OR REPLACE FUNCTION public.delete_chat_thread(p_thread_id bigint)
+ALTER TABLE public.chat_threads
+  ADD COLUMN IF NOT EXISTS buyer_hidden_at timestamptz,
+  ADD COLUMN IF NOT EXISTS seller_hidden_at timestamptz;
+
+CREATE OR REPLACE FUNCTION public.hide_chat_thread(p_thread_id bigint)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -23,27 +28,38 @@ BEGIN
     RAISE EXCEPTION 'Chat not found';
   END IF;
 
-  IF v_thread.buyer_id <> auth.uid()
-     AND v_thread.seller_id <> auth.uid()
-     AND NOT public.is_admin() THEN
-    RAISE EXCEPTION 'You cannot delete this chat';
+  IF v_thread.buyer_id = auth.uid() THEN
+    UPDATE public.chat_threads
+    SET buyer_hidden_at = coalesce(buyer_hidden_at, now())
+    WHERE id = p_thread_id;
+  ELSIF v_thread.seller_id = auth.uid() THEN
+    UPDATE public.chat_threads
+    SET seller_hidden_at = coalesce(seller_hidden_at, now())
+    WHERE id = p_thread_id;
+  ELSIF public.is_admin() THEN
+    UPDATE public.chat_threads
+    SET
+      buyer_hidden_at = coalesce(buyer_hidden_at, now()),
+      seller_hidden_at = coalesce(seller_hidden_at, now())
+    WHERE id = p_thread_id;
+  ELSE
+    RAISE EXCEPTION 'You cannot hide this chat';
   END IF;
-
-  DELETE FROM public.chat_threads WHERE id = p_thread_id;
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.delete_chat_thread(p_thread_id bigint)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  PERFORM public.hide_chat_thread(p_thread_id);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.hide_chat_thread(bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_chat_thread(bigint) TO authenticated;
-
--- RLS-backed fallback for environments that call table deletion directly.
-GRANT DELETE ON public.chat_threads TO authenticated;
-
+REVOKE DELETE ON public.chat_threads FROM authenticated;
 DROP POLICY IF EXISTS threads_delete ON public.chat_threads;
-CREATE POLICY threads_delete ON public.chat_threads
-  FOR DELETE
-  TO authenticated
-  USING (
-    buyer_id = auth.uid()
-    OR seller_id = auth.uid()
-    OR public.is_admin()
-  );

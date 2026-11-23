@@ -76,6 +76,7 @@ export type SellerRequest = {
   dealId: number;
   listing: Listing;
   buyer: string;
+  lastActionBy: "buyer" | "seller" | null;
   type: "Offer" | "Borrow" | "Claim";
   submitted: string;
   detail: string;
@@ -131,6 +132,7 @@ export type SellerReview = {
   buyer: string;
   sellerUsername: string;
   date: string;
+  dateKey: string;
   listing: Listing;
   reply?: string;
   repliedAt?: string;
@@ -296,6 +298,15 @@ const PLACEHOLDER_IMAGE =
     '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect fill="#e8eef6" width="100%" height="100%"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7a8aa0" font-size="28">No photo</text></svg>',
   );
 
+export const LISTING_CATEGORIES = [
+  "Electronics",
+  "Books & Course Materials",
+  "Furniture & Home",
+  "Fashion & Accessories",
+  "Sports & Outdoors",
+  "Other",
+] as const;
+
 export const passwordRules = [
   { label: "At least 8 characters", test: (value: string) => value.length >= 8 },
   { label: "One uppercase letter", test: (value: string) => /[A-Z]/.test(value) },
@@ -395,10 +406,16 @@ function listingStatusForRequest(status: string): SellerRequest["listingStatus"]
 }
 
 function offerStatusUi(status: string): SellerRequest["status"] {
-  if (status === "accepted") return "Accepted";
+  if (status === "accepted" || status === "completed" || status === "returned") return "Accepted";
   if (status === "declined" || status === "cancelled") return "Declined";
   if (status === "countered") return "Countered";
   return "Pending";
+}
+
+function isOpenSellerRequest(offer: OfferRow, listing: ListingRow) {
+  if (offer.buyer_id === listing.seller_id) return false;
+  if (!["live", "reserved"].includes(listing.status)) return false;
+  return ["pending", "countered", "declined", "accepted"].includes(offer.status);
 }
 
 const HK_TIME_ZONE = "Asia/Hong_Kong";
@@ -909,11 +926,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   const sellerRequests: SellerRequest[] = offers
     .filter((offer) => {
       const listing = listingById.get(offer.listing_id);
-      return (
-        listing?.seller_id === me.id &&
-        listing.status === "live" &&
-        offer.buyer_id !== listing.seller_id
-      );
+      return Boolean(listing && listing.seller_id === me.id && isOpenSellerRequest(offer, listing));
     })
     .map((offer) => {
       const listingRow = listingById.get(offer.listing_id);
@@ -966,8 +979,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     .filter(
       (row) =>
         row.seller_id === me.id &&
-        row.status !== "removed" &&
-        row.status !== "reserved",
+        row.status !== "removed",
     )
     .map((row) => ({
       id: row.id,
@@ -992,6 +1004,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
         buyer: usernameOf(profiles, rating.buyer_id),
         sellerUsername,
         date: formatDateTime(rating.created_at),
+        dateKey: hongKongDateKey(new Date(rating.created_at)),
         listing: { ...listing, seller: listing.seller || sellerUsername },
         reply: rating.seller_reply ?? undefined,
         repliedAt: rating.replied_at ? formatDateTime(rating.replied_at) : undefined,
@@ -1212,7 +1225,7 @@ export async function updateListingDetails(
     photos?: string[];
     resubmit?: boolean;
   },
-) {
+): Promise<number> {
   const updates: Record<string, unknown> = {
     title: patch.title.trim(),
     category: patch.category,
@@ -1224,6 +1237,19 @@ export async function updateListingDetails(
   if (patch.photos) updates.photos = patch.photos.slice(0, 6);
   const { error } = await supabase.from("listings").update(updates).eq("id", listingId);
   throwIf(error);
+
+  const { data: notified, error: notifyError } = await supabase.rpc(
+    "notify_active_offer_buyers_of_listing_edit",
+    { p_listing_id: listingId },
+  );
+  if (notifyError) {
+    const missing =
+      notifyError.code === "PGRST202" ||
+      /could not find the function|schema cache/i.test(notifyError.message);
+    if (!missing) throw new Error(rpcMessage(notifyError));
+    return 0;
+  }
+  return Number(notified ?? 0);
 }
 
 const recentListingViews = new Map<number, number>();
@@ -1535,38 +1561,21 @@ function hideDeletedChatThreadLocally(threadId: number) {
   window.localStorage.setItem(deletedChatStorageKey, JSON.stringify([...next]));
 }
 
+function isMissingRpc(error: { code?: string; message: string }) {
+  return (
+    error.code === "PGRST202" ||
+    /could not find the function|schema cache/i.test(error.message)
+  );
+}
+
 export async function deleteChatThread(threadId: number) {
-  const { error: rpcError } = await supabase.rpc("delete_chat_thread", {
+  hideDeletedChatThreadLocally(threadId);
+
+  const { error } = await supabase.rpc("hide_chat_thread", {
     p_thread_id: threadId,
   });
-  if (!rpcError) {
-    hideDeletedChatThreadLocally(threadId);
-    return;
-  }
-
-  const missingFunction =
-    rpcError.code === "PGRST202" ||
-    rpcError.message.toLowerCase().includes("could not find the function");
-
-  if (!missingFunction) throw new Error(rpcMessage(rpcError));
-
-  const { error: deleteError } = await supabase
-    .from("chat_threads")
-    .delete()
-    .eq("id", threadId);
-  if (!deleteError) {
-    hideDeletedChatThreadLocally(threadId);
-    return;
-  }
-
-  const unavailable =
-    deleteError.code === "42501" ||
-    deleteError.message.toLowerCase().includes("permission denied");
-  if (unavailable) {
-    hideDeletedChatThreadLocally(threadId);
-    return;
-  }
-  throw new Error(rpcMessage(deleteError));
+  if (!error || isMissingRpc(error)) return;
+  throw new Error(rpcMessage(error));
 }
 
 export async function listMyChatThreads(): Promise<MyChatThread[]> {
@@ -1574,12 +1583,29 @@ export async function listMyChatThreads(): Promise<MyChatThread[]> {
   if (!auth.user) return [];
   const myId = auth.user.id;
   const deletedIds = deletedChatThreadIds();
-  const { data: threads, error } = await supabase
+  type ThreadRow = {
+    id: number;
+    listing_id: number;
+    buyer_id: string;
+    seller_id: string;
+    created_at: string;
+    buyer_hidden_at?: string | null;
+    seller_hidden_at?: string | null;
+  };
+  const withHidden = await supabase
     .from("chat_threads")
-    .select("id, listing_id, buyer_id, seller_id, created_at")
+    .select("id, listing_id, buyer_id, seller_id, created_at, buyer_hidden_at, seller_hidden_at")
     .or(`buyer_id.eq.${myId},seller_id.eq.${myId}`);
-  throwIf(error);
-  if (!threads?.length) return [];
+  const threadsRes =
+    withHidden.error && /buyer_hidden_at|seller_hidden_at|schema cache/i.test(withHidden.error.message)
+      ? await supabase
+          .from("chat_threads")
+          .select("id, listing_id, buyer_id, seller_id, created_at")
+          .or(`buyer_id.eq.${myId},seller_id.eq.${myId}`)
+      : withHidden;
+  throwIf(threadsRes.error);
+  const threads = (threadsRes.data ?? []) as ThreadRow[];
+  if (!threads.length) return [];
 
   const listingIds = [...new Set(threads.map((thread) => thread.listing_id as number))];
   const [{ data: profiles }, { data: listingRows }] = await Promise.all([
@@ -1612,11 +1638,14 @@ export async function listMyChatThreads(): Promise<MyChatThread[]> {
   }
 
   return threads
-    .filter(
-      (thread) =>
-        !deletedIds.has(thread.id as number) &&
-        thread.buyer_id !== thread.seller_id,
-    )
+    .filter((thread) => {
+      if (deletedIds.has(thread.id as number)) return false;
+      if (thread.buyer_id === thread.seller_id) return false;
+      const hidden = thread as { buyer_hidden_at?: string | null; seller_hidden_at?: string | null };
+      if (thread.buyer_id === myId && hidden.buyer_hidden_at) return false;
+      if (thread.seller_id === myId && hidden.seller_hidden_at) return false;
+      return true;
+    })
     .map((thread) => {
       const listing = listingById.get(thread.listing_id as number);
       if (!listing) return null;

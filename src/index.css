@@ -4524,7 +4524,7 @@ footer > span {
   font-size: 8px;
 }
 .ratings-toolbar {
-  grid-template-columns: 1fr 170px;
+  grid-template-columns: 1fr 150px 150px 150px;
   border-radius: 9px;
   margin-bottom: 13px;
 }
