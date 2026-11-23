@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "./lib/api";
 import { passwordRules } from "./lib/api";
+import { useAppBusy } from "./lib/busy";
 
 type Role = api.Role;
 type AuthView = "login" | "buyer-register" | "seller-register" | "admin-login";
@@ -302,10 +303,53 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
   );
 }
 
+function avatarInitials(name: string) {
+  const parts = name
+    .trim()
+    .split(/[\s,]+/)
+    .map((part) => part.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+function StarMeter({
+  value,
+  size = 14,
+  className = "",
+}: {
+  value: number;
+  size?: number;
+  className?: string;
+}) {
+  const filled = Math.max(0, Math.min(5, Math.round(Number(value) || 0)));
+  return (
+    <span
+      className={`star-meter${className ? ` ${className}` : ""}`}
+      aria-label={`${Number(value) || 0} out of 5 stars`}
+    >
+      {[1, 2, 3, 4, 5].map((star) => (
+        <svg
+          key={star}
+          className={star <= filled ? "is-filled" : "is-empty"}
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.3 6.1-.9L12 3Z" />
+        </svg>
+      ))}
+    </span>
+  );
+}
+
 function Logo() {
+  const busy = useAppBusy();
   return (
     <div className="logo-lockup">
-      <div className="logo-mark">
+      <div className={`logo-mark${busy ? " is-busy" : ""}`} aria-busy={busy}>
         <span>科</span>
       </div>
       <div>
@@ -887,10 +931,9 @@ function DetailModal({
               <strong>
                 {listing.seller.replace(".", " ")} · @{listing.seller}
               </strong>
-              <span
-                aria-label={`Rated ${listing.sellerRating ?? 0} out of 5 stars`}
-              >
-                ★★★★★ <b>{listing.sellerRating ?? "—"}</b> · {listing.sellerReviewCount ?? 0} reviews
+              <span>
+                <StarMeter value={listing.sellerRating ?? 0} size={12} />{" "}
+                <b>{listing.sellerRating ?? "—"}</b> · {listing.sellerReviewCount ?? 0} reviews
               </span>
             </div>
             <span className="seller-link">
@@ -1279,12 +1322,7 @@ function SellerProfileModal({
   const meetupLocations = account?.meetups?.length
     ? account.meetups
     : [...new Set(profileListings.map((listing) => listing.location))];
-  const initials = fullName
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const initials = avatarInitials(fullName);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -1316,7 +1354,7 @@ function SellerProfileModal({
             {reviewCount ? (
               <>
                 <strong>{average.toFixed(1)}</strong>
-                <span aria-label={`${average.toFixed(1)} out of 5 stars`}>★★★★★</span>
+                <StarMeter value={average} size={12} />
                 <small>
                   {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
                 </small>
@@ -1402,7 +1440,7 @@ function SellerProfileModal({
                 {profileReviews.slice(0, 3).map((review) => (
                   <article key={review.id}>
                     <div>
-                      <strong>{"★".repeat(review.rating)}</strong>
+                      <StarMeter value={review.rating} size={11} />
                       <span>@{review.buyer}</span>
                       <time>{review.date}</time>
                     </div>
@@ -4706,11 +4744,7 @@ function ManageUsersPage({
                     <td>
                       <button className="admin-user-identity" onClick={() => openUser(user)}>
                         <span className="avatar">
-                          {user.fullName
-                            .split(" ")
-                            .map((part) => part[0])
-                            .join("")
-                            .slice(0, 2)}
+                          {avatarInitials(user.fullName)}
                         </span>
                         <span>
                           <strong>{user.fullName}</strong>
@@ -5517,7 +5551,7 @@ function SellerReviewsPage({
         <div className="seller-rating-summary">
           <strong>{averageRating.toFixed(1)}</strong>
           <div>
-            <span aria-label={`${averageRating.toFixed(1)} out of 5 stars`}>★★★★★</span>
+            <StarMeter value={averageRating} size={14} />
             <small>{reviews.length} buyer reviews</small>
           </div>
         </div>
@@ -5569,25 +5603,14 @@ function SellerReviewsPage({
           {visibleReviews.map((review) => (
             <article className="seller-review-card" key={review.id}>
               <div className="review-buyer-column">
-                <div className="avatar">
-                  {review.buyer
-                    .split(".")
-                    .map((part) => part[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()}
-                </div>
+                <div className="avatar">{avatarInitials(review.buyer.replace(/\./g, " "))}</div>
                 <strong>@{review.buyer}</strong>
                 <span>{review.date}</span>
               </div>
               <div className="review-content-column">
                 <div className="review-rating-row">
-                  <div className="review-stars" aria-label={`${review.rating} out of 5 stars`}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <span className={star <= review.rating ? "filled" : ""} key={star}>
-                        ★
-                      </span>
-                    ))}
+                  <div className="review-stars">
+                    <StarMeter value={review.rating} size={15} />
                     <strong>{review.rating}.0</strong>
                   </div>
                   {review.flagged && (
@@ -6215,6 +6238,7 @@ type SellerRating = {
   reviews: number;
   fiveStar: number;
   latest: string;
+  latestAt: string;
   listings: number;
 };
 function RatingsOverviewPage({
@@ -6247,6 +6271,27 @@ function RatingsOverviewPage({
       );
     return matchesUser && matchesScore && matchesDate;
   });
+  const ranked = [...visible].sort((a, b) => {
+    const newest = Date.parse(b.latestAt) - Date.parse(a.latestAt);
+    if (Number.isFinite(newest) && newest !== 0) return newest;
+    if (b.latestAt && !a.latestAt) return 1;
+    if (a.latestAt && !b.latestAt) return -1;
+    return b.reviews - a.reviews;
+  });
+  const reviewsForSeller = (seller: SellerRating) =>
+    reviews.filter(
+      (review) =>
+        (review.sellerUsername === seller.seller || review.listing.seller === seller.seller) &&
+        reviewInDateRange(review),
+    );
+  const selectedReviews = selected ? reviewsForSeller(selected) : [];
+  const selectedStarCounts = [5, 4, 3, 2, 1].map(
+    (star) => selectedReviews.filter((review) => review.rating === star).length,
+  );
+  const selectedReviewTotal = selectedReviews.length;
+  const selectedAverage = selectedReviewTotal
+    ? selectedReviews.reduce((sum, review) => sum + review.rating, 0) / selectedReviewTotal
+    : 0;
   const platformAverage = ratings.length
     ? ratings.reduce((sum, seller) => sum + seller.average, 0) / ratings.length
     : 0;
@@ -6261,7 +6306,7 @@ function RatingsOverviewPage({
         <div className="platform-rating">
           <strong>{platformAverage.toFixed(1)}</strong>
           <div>
-            <span>★★★★★</span>
+            <StarMeter value={platformAverage} size={13} />
             <small>
               {ratings.reduce((sum, seller) => sum + seller.reviews, 0)} reviews across{" "}
               {ratings.length} sellers
@@ -6293,15 +6338,10 @@ function RatingsOverviewPage({
         </label>
       </div>
       <div className="ratings-grid">
-        {visible.map((seller) => (
+        {ranked.map((seller) => (
           <article className="seller-rating-card" key={seller.seller}>
             <div className="seller-rating-head">
-              <span className="avatar">
-                {seller.name
-                  .split(" ")
-                  .map((part) => part[0])
-                  .join("")}
-              </span>
+              <span className="avatar">{avatarInitials(seller.name)}</span>
               <div>
                 <h2>{seller.name}</h2>
                 <p>
@@ -6310,8 +6350,8 @@ function RatingsOverviewPage({
               </div>
               <strong>{seller.average.toFixed(1)}</strong>
             </div>
-            <div className="seller-rating-stars" aria-label={`${seller.average} out of 5 stars`}>
-              ★★★★★
+            <div className="seller-rating-stars">
+              <StarMeter value={seller.average} size={14} />
             </div>
             <dl>
               <div>
@@ -6360,37 +6400,35 @@ function RatingsOverviewPage({
             <p className="eyebrow">SELLER RATING DETAIL</p>
             <h2>{selected.name}</h2>
             <p>
-              @{selected.seller} · {selected.reviews} verified buyer reviews
+              @{selected.seller} · {selectedReviewTotal} verified buyer reviews
             </p>
             <div className="rating-detail-score">
-              <strong>{selected.average.toFixed(1)}</strong>
+              <strong>{selectedAverage.toFixed(1)}</strong>
               <span>
-                ★★★★★<small>Platform average: {platformAverage.toFixed(1)}</small>
+                <StarMeter value={selectedAverage} size={16} />
+                <small>Platform average: {platformAverage.toFixed(1)}</small>
               </span>
             </div>
             <div className="rating-breakdown">
-              {[5, 4, 3, 2, 1].map((star, index) => (
-                <div key={star}>
-                  <span>{star} ★</span>
-                  <i>
-                    <b className={`rating-bar rating-bar-${index}`} />
-                  </i>
-                  <small>{Math.max(0, selected.fiveStar - index * 3)}</small>
-                </div>
-              ))}
+              {[5, 4, 3, 2, 1].map((star, index) => {
+                const count = selectedStarCounts[index] ?? 0;
+                const width = selectedReviewTotal ? (count / selectedReviewTotal) * 100 : 0;
+                return (
+                  <div key={star}>
+                    <span>{star} ★</span>
+                    <i>
+                      <b style={{ width: `${width}%` }} />
+                    </i>
+                    <small>{count}</small>
+                  </div>
+                );
+              })}
             </div>
             <div className="rating-detail-reviews">
-              {reviews
-                .filter(
-                  (review) =>
-                    (review.sellerUsername === selected.seller ||
-                      review.listing.seller === selected.seller) &&
-                    reviewInDateRange(review),
-                )
-                .map((review) => (
+              {selectedReviews.map((review) => (
                   <article key={review.id}>
                     <span>
-                      {review.rating}.0 ★ · @{review.buyer}
+                      <StarMeter value={review.rating} size={11} /> · @{review.buyer}
                     </span>
                     <p>{review.text || "No written review."}</p>
                     <button
@@ -6507,13 +6545,7 @@ function ProfilePage({
       });
   };
 
-  const initials = fullName
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const initials = avatarInitials(fullName);
 
   return (
     <section>
@@ -7775,12 +7807,7 @@ export default function App() {
   const signedInUser = users.find((user) => user.username === currentUsername);
   const displayName =
     role === "Admin" ? adminProfile.fullName : (signedInUser?.fullName ?? "Alex Chan");
-  const displayInitials = displayName
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const displayInitials = avatarInitials(displayName);
   const unreadNotificationCount = notifications.filter(
     (item) => !notificationReads.includes(item.id),
   ).length;

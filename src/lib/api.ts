@@ -174,6 +174,7 @@ export type SellerRating = {
   reviews: number;
   fiveStar: number;
   latest: string;
+  latestAt: string;
   listings: number;
 };
 
@@ -1049,23 +1050,32 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
     .filter((deal): deal is SystemDeal => Boolean(deal));
 
   const sellerIds = profiles.filter((profile) => profile.role === "seller");
-  const sellerRatings: SellerRating[] = sellerIds.map((seller) => {
-    const visible = ratings.filter((rating) => rating.seller_id === seller.id && !rating.hidden);
-    const average = visible.length
-      ? visible.reduce((sum, rating) => sum + rating.stars, 0) / visible.length
-      : 0;
-    const latest = visible[0]?.created_at;
-    return {
-      seller: seller.username,
-      name: seller.full_name,
-      average: Number(average.toFixed(1)),
-      reviews: visible.length,
-      fiveStar: visible.filter((rating) => rating.stars === 5).length,
-      latest: latest ? formatDateTime(latest) : "—",
-      listings: listingRows.filter((row) => row.seller_id === seller.id && row.status !== "removed")
-        .length,
-    };
-  });
+  const sellerRatings: SellerRating[] = sellerIds
+    .map((seller) => {
+      const visible = ratings.filter((rating) => rating.seller_id === seller.id && !rating.hidden);
+      const average = visible.length
+        ? visible.reduce((sum, rating) => sum + rating.stars, 0) / visible.length
+        : 0;
+      const latest = visible[0]?.created_at ?? "";
+      return {
+        seller: seller.username,
+        name: seller.full_name,
+        average: Number(average.toFixed(1)),
+        reviews: visible.length,
+        fiveStar: visible.filter((rating) => rating.stars === 5).length,
+        latest: latest ? formatDateTime(latest) : "—",
+        latestAt: latest,
+        listings: listingRows.filter((row) => row.seller_id === seller.id && row.status !== "removed")
+          .length,
+      };
+    })
+    .sort((a, b) => {
+      const newest = Date.parse(b.latestAt) - Date.parse(a.latestAt);
+      if (Number.isFinite(newest) && newest !== 0) return newest;
+      if (b.latestAt && !a.latestAt) return 1;
+      if (a.latestAt && !b.latestAt) return -1;
+      return b.reviews - a.reviews;
+    });
 
   const ratedDealIds = ratings
     .filter((rating) => rating.buyer_id === me.id)
