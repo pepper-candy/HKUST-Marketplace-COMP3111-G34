@@ -132,7 +132,7 @@ Numbered files under `supabase/` are the source patches. `000_init.sql` concaten
 | `028_canvas_deal_flow.sql` | Giveaway first-claim-wins; sell/lend Accept reserves; buyer marks complete then rates |
 | `029_borrow_start_not_past.sql` | Borrow start cannot be in the past; end at least 5 seconds after start |
 | `030_borrow_max_duration.sql` | Borrow request cannot exceed the listing lending duration |
-| `031_report_includes_reason.sql` | Admin report notification includes the written report reason |
+| `031_report_includes_reason.sql` | Report notification includes the reason; dismissing a report does not pull the listing back |
 
 To rebuild `000_init.sql` after editing those sources: `node supabase/_build_000_init.mjs`.
 

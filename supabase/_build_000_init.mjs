@@ -20,7 +20,7 @@ const files = [
   ["028_canvas_deal_flow.sql", "Giveaway first-claim-wins; reserved until buyer marks complete"],
   ["029_borrow_start_not_past.sql", "Borrow start cannot be in the past; 5-second minimum"],
   ["030_borrow_max_duration.sql", "Borrow request cannot exceed listing lending duration"],
-  ["031_report_includes_reason.sql", "Report notification includes the written reason"],
+  ["031_report_includes_reason.sql", "Report reason in notify; dismiss report does not pull listing back"],
 ];
 
 function stripTx(sql) {

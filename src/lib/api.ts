@@ -971,7 +971,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
       .order("created_at", { ascending: true }),
     supabase
       .from("listing_reports")
-      .select("listing_id, reason, created_at")
+      .select("listing_id, reason, created_at, resolved_at")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -1092,6 +1092,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
 
   const reportReasonByListing = new Map<number, string>();
   for (const report of reportsRes.data ?? []) {
+    if (report.resolved_at) continue;
     const listingId = Number(report.listing_id);
     const reason = typeof report.reason === "string" ? report.reason.trim() : "";
     if (!listingId || !reason || reportReasonByListing.has(listingId)) continue;
@@ -1610,6 +1611,11 @@ export async function reportListing(listingId: number, reason?: string) {
     p_listing_id: listingId,
     p_reason: reason ?? "Inappropriate or unsafe listing",
   });
+  if (error) throw new Error(rpcMessage(error));
+}
+
+export async function dismissListingReports(listingId: number) {
+  const { error } = await supabase.rpc("dismiss_listing_reports", { p_listing_id: listingId });
   if (error) throw new Error(rpcMessage(error));
 }
 

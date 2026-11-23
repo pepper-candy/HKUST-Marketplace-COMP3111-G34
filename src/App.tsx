@@ -4433,6 +4433,7 @@ function ListingReviewPage({
   );
   const [approving, setApproving] = useState<ReviewListing | null>(null);
   const [rejecting, setRejecting] = useState<ReviewListing | null>(null);
+  const [dismissingReport, setDismissingReport] = useState<ReviewListing | null>(null);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState("");
   const visibleRecords =
@@ -4468,6 +4469,18 @@ function ListingReviewPage({
         setReasonError("");
       })
       .catch((err) => onAction(err instanceof Error ? err.message : "Could not reject listing."));
+  };
+
+  const dismissReport = () => {
+    if (!dismissingReport) return;
+    void api
+      .dismissListingReports(dismissingReport.listing.id)
+      .then(() => onRefresh())
+      .then(() => {
+        onAction(`Report dismissed. “${dismissingReport.listing.title}” stays live.`);
+        setDismissingReport(null);
+      })
+      .catch((err) => onAction(err instanceof Error ? err.message : "Could not dismiss report."));
   };
 
   return (
@@ -4571,38 +4584,52 @@ function ListingReviewPage({
                     </dl>
                     {record.status === "Pending Review" && (
                       <div className="review-actions">
-                        <button
-                          className="request-decline"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setRejecting(record);
-                            setReason("");
-                            setReasonError("");
-                          }}
-                        >
-                          Reject
-                        </button>
-                        {record.reportReason ? (
-                          <button
-                            className="primary-action"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onOpenListing(record.listing);
-                            }}
-                          >
-                            Review
-                          </button>
+                        {record.reportReason &&
+                        record.listing.availability !== "Pending review" ? (
+                          <>
+                            <button
+                              className="request-decline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDismissingReport(record);
+                              }}
+                            >
+                              Reject report
+                            </button>
+                            <button
+                              className="primary-action"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onOpenListing(record.listing);
+                              }}
+                            >
+                              Review
+                            </button>
+                          </>
                         ) : (
-                          <button
-                            className="primary-action"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setApproving(record);
-                            }}
-                          >
-                            <Icon name="check" size={15} />
-                            Approve
-                          </button>
+                          <>
+                            <button
+                              className="request-decline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setRejecting(record);
+                                setReason("");
+                                setReasonError("");
+                              }}
+                            >
+                              Reject
+                            </button>
+                            <button
+                              className="primary-action"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setApproving(record);
+                              }}
+                            >
+                              <Icon name="check" size={15} />
+                              Approve
+                            </button>
+                          </>
                         )}
                       </div>
                     )}
@@ -4690,6 +4717,34 @@ function ListingReviewPage({
               <button className="destructive-action">Reject and notify seller</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {dismissingReport && (
+        <div className="modal-backdrop" onMouseDown={() => setDismissingReport(null)}>
+          <div
+            className="confirm-dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <span className="confirm-icon">
+              <Icon name="x" size={23} />
+            </span>
+            <h2>Reject this report?</h2>
+            <p>
+              This report is not valid. “{dismissingReport.listing.title}” stays live and is not
+              pulled back. Use Review → Take down if the listing itself should be removed.
+            </p>
+            <div className="confirm-actions">
+              <button className="secondary-action" onClick={() => setDismissingReport(null)}>
+                Cancel
+              </button>
+              <button className="destructive-action" onClick={dismissReport}>
+                Reject report
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>
