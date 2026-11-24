@@ -61,6 +61,9 @@ export function statusTone(label: string): "ok" | "wait" | "bad" {
   return "ok";
 }
 
+/**
+ * calls setStart and setEnd respectively to set the default start and end times for the listing.
+ */
 export function applyDefaultBorrowPeriod(
   setStart: (value: string) => void,
   setEnd: (value: string) => void,
@@ -71,6 +74,9 @@ export function applyDefaultBorrowPeriod(
   setEnd(period.end);
 }
 
+/**
+* turns body into the 'canonical' terminology for offers and requests.
+*/
 export function unifyOfferCopy(body: string, listingType: Listing["type"]) {
   let text = body
     .replace(/^Proposed price:\s*/i, "Offer: ")
@@ -85,6 +91,9 @@ export function unifyOfferCopy(body: string, listingType: Listing["type"]) {
   return text;
 }
 
+/**
+ * returns an array of offer messages in the chat of a given listing and buyer.
+ */
 export function chatOffersForListing(
   listing: Listing,
   messages: ChatMessage[],
