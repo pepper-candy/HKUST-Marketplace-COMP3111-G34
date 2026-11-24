@@ -31,7 +31,10 @@ type ListingOfferItem = {
 
 const CHAT_OFFER_DECLINED_MARKER = "__HKUST_OFFER_DECLINED__:";
 
-function statusTone(label: string): "ok" | "wait" | "bad" {
+/**
+ * returns the type of message ("ok", "wait", "bad") for a given message.
+ */
+export function statusTone(label: string): "ok" | "wait" | "bad" {
   const text = label.trim().toLowerCase();
   if (
     text.includes("cancel") ||
@@ -58,7 +61,7 @@ function statusTone(label: string): "ok" | "wait" | "bad" {
   return "ok";
 }
 
-function applyDefaultBorrowPeriod(
+export function applyDefaultBorrowPeriod(
   setStart: (value: string) => void,
   setEnd: (value: string) => void,
   listing?: Listing,
@@ -68,7 +71,7 @@ function applyDefaultBorrowPeriod(
   setEnd(period.end);
 }
 
-function unifyOfferCopy(body: string, listingType: Listing["type"]) {
+export function unifyOfferCopy(body: string, listingType: Listing["type"]) {
   let text = body
     .replace(/^Proposed price:\s*/i, "Offer: ")
     .replace(/^Formal offer:\s*/i, "Offer: ")
@@ -82,7 +85,7 @@ function unifyOfferCopy(body: string, listingType: Listing["type"]) {
   return text;
 }
 
-function chatOffersForListing(
+export function chatOffersForListing(
   listing: Listing,
   messages: ChatMessage[],
   buyerName: string,
@@ -104,7 +107,7 @@ function chatOffersForListing(
     }));
 }
 
-function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
+export function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   if (message.kind !== "offer") return false;
   if (message.offerStatus === "Declined") return true;
   if (
@@ -118,7 +121,7 @@ function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   return group.at(-1)?.id !== message.id;
 }
 
-function isInitialOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
+export function isInitialOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   if (message.kind !== "offer") return false;
   const earlier = messages
     .filter((item) =>
@@ -131,7 +134,7 @@ function isInitialOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   return earlier === 0;
 }
 
-function syncChatOfferStatuses(
+export function syncChatOfferStatuses(
   current: Record<number, ChatMessage[]>,
   requests: api.SellerRequest[],
   deals: api.BuyerDeal[],
@@ -156,7 +159,7 @@ function syncChatOfferStatuses(
   return changed ? next : current;
 }
 
-function latestOffersByBuyer(offers: ListingOfferItem[]) {
+export function latestOffersByBuyer(offers: ListingOfferItem[]) {
   const latest = new Map<string, ListingOfferItem>();
   for (const offer of offers) {
     latest.set(offer.buyer.trim().toLowerCase(), offer);
@@ -164,7 +167,7 @@ function latestOffersByBuyer(offers: ListingOfferItem[]) {
   return [...latest.values()];
 }
 
-function mergeListingOffers(primary: ListingOfferItem[], extra: ListingOfferItem[]) {
+export function mergeListingOffers(primary: ListingOfferItem[], extra: ListingOfferItem[]) {
   return latestOffersByBuyer([...extra, ...primary]);
 }
 
@@ -174,7 +177,7 @@ const dealToneColors: Record<string, string> = {
   given: "#7fa491",
 };
 
-function dealsDonutBackground(items: api.SellerStats["dealsByType"]) {
+export function dealsDonutBackground(items: api.SellerStats["dealsByType"]) {
   const total = items.reduce((sum, item) => sum + item.count, 0);
   if (total === 0) return "#edf0f2";
 
@@ -190,7 +193,7 @@ function dealsDonutBackground(items: api.SellerStats["dealsByType"]) {
   return `conic-gradient(${segments.join(", ")})`;
 }
 
-function withListingChatPeople(
+export function withListingChatPeople(
   offers: ListingOfferItem[],
   people: { id: string; buyer: string; lastMessage: string }[],
 ) {
@@ -322,7 +325,7 @@ const iconPaths: Record<string, React.ReactNode> = {
   arrow: <path d="m5 12 14 0m-5-5 5 5-5 5" />,
 };
 
-function Icon({ name, size = 20 }: { name: string; size?: number }) {
+export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   return (
     <svg
       width={size}
@@ -340,7 +343,7 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
   );
 }
 
-function avatarInitials(name: string) {
+export function avatarInitials(name: string) {
   const parts = name
     .trim()
     .split(/[\s,]+/)
@@ -351,7 +354,7 @@ function avatarInitials(name: string) {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
-function StarMeter({
+export function StarMeter({
   value,
   size = 14,
   className = "",
@@ -382,7 +385,7 @@ function StarMeter({
   );
 }
 
-function Logo() {
+export function Logo() {
   const busy = useAppBusy();
   return (
     <div className="logo-lockup">
@@ -397,11 +400,11 @@ function Logo() {
   );
 }
 
-function isUsableListingPhoto(src?: string): src is string {
+export function isUsableListingPhoto(src?: string): src is string {
   return typeof src === "string" && src.length > 0 && !src.startsWith("data:image/svg");
 }
 
-function ListingPhoto({
+export function ListingPhoto({
   src,
   alt,
   onLoad,
@@ -440,7 +443,7 @@ function ListingPhoto({
   );
 }
 
-function ListingCard({ listing, onOpen }: { listing: Listing; onOpen: () => void }) {
+export function ListingCard({ listing, onOpen }: { listing: Listing; onOpen: () => void }) {
   return (
     <article className="listing-card" onClick={onOpen}>
       <div className="listing-image">
@@ -480,7 +483,7 @@ function ListingCard({ listing, onOpen }: { listing: Listing; onOpen: () => void
   );
 }
 
-function Browse({
+export function Browse({
   listings,
   onOpen,
   onRefreshListings,
@@ -632,7 +635,7 @@ function Browse({
   );
 }
 
-function DetailModal({
+export function DetailModal({
   listing,
   role,
   currentUsername,
@@ -1320,7 +1323,7 @@ function DetailModal({
   );
 }
 
-function SellerProfileModal({
+export function SellerProfileModal({
   seller,
   fullName,
   users,
@@ -1491,7 +1494,7 @@ function SellerProfileModal({
   );
 }
 
-function ChatScreen({
+export function ChatScreen({
   listing,
   role,
   threadId,
@@ -2383,7 +2386,7 @@ type BuyerDeal = {
   completed?: boolean;
 };
 
-function RatingDialog({
+export function RatingDialog({
   deal,
   onClose,
   onSubmit,
@@ -2456,7 +2459,7 @@ function RatingDialog({
   );
 }
 
-function RateSellersPage({
+export function RateSellersPage({
   deals,
   ratedDealIds,
   onRatedDealIdsChange,
@@ -2561,7 +2564,7 @@ function RateSellersPage({
   );
 }
 
-function MyDealsPage({
+export function MyDealsPage({
   deals,
   ratedDealIds,
   onRatedDealIdsChange,
@@ -3148,7 +3151,7 @@ function MyDealsPage({
   );
 }
 
-function DealHistoryPage({
+export function DealHistoryPage({
   deals,
   onOpenListing,
 }: {
@@ -3331,7 +3334,7 @@ type SellerRequest = {
   listingStatus: "Available" | "Reserved" | "Sold" | "Lent" | "Given";
 };
 
-function SellerRequestsPage({
+export function SellerRequestsPage({
   requests,
   onRequestsChange,
   buyerDealState,
@@ -3739,7 +3742,7 @@ type PhotoPreview = {
   file?: File;
 };
 
-function CreateListingForm({
+export function CreateListingForm({
   onAction,
   onRefresh,
   users,
@@ -4109,7 +4112,7 @@ type NotificationItem = {
   threadId?: number;
 };
 
-function listingFromNotification(message: string, listings: Listing[]) {
+export function listingFromNotification(message: string, listings: Listing[]) {
   const quoted = [...message.matchAll(/[“"]([^”"]+)[”"]/g)].map((match) => match[1].trim());
   for (const title of quoted) {
     const hit = listings.find((listing) => listing.title === title);
@@ -4118,7 +4121,7 @@ function listingFromNotification(message: string, listings: Listing[]) {
   return listings.find((listing) => message.includes(listing.title));
 }
 
-function usernameFromNotification(item: NotificationItem, knownUsernames: string[] = []) {
+export function usernameFromNotification(item: NotificationItem, knownUsernames: string[] = []) {
   const fromTitle = item.title.match(/@(.+)$/)?.[1]?.trim();
   const names = [...new Set(knownUsernames.filter(Boolean))].sort((a, b) => b.length - a.length);
   if (fromTitle) {
@@ -4133,7 +4136,7 @@ function usernameFromNotification(item: NotificationItem, knownUsernames: string
     ?? text.match(/@([A-Za-z0-9._-]+(?:\s+[A-Za-z0-9._-]+)*)/)?.[1]?.trim();
 }
 
-function chatTargetFromNotification(
+export function chatTargetFromNotification(
   item: NotificationItem,
   role: Role,
   listings: Listing[],
@@ -4193,7 +4196,7 @@ function chatTargetFromNotification(
   return null;
 }
 
-function pageForNotificationAction(action: string, role: Role) {
+export function pageForNotificationAction(action: string, role: Role) {
   if (action === "Review listing") return role === "Admin" ? "Listing Review" : "My Listings";
   if (action === "View listing") {
     return role === "Admin" ? "All Listings" : role === "Seller" ? "My Listings" : "Browse";
@@ -4211,7 +4214,7 @@ function pageForNotificationAction(action: string, role: Role) {
   return null;
 }
 
-function NotificationBoard({
+export function NotificationBoard({
   role,
   items,
   listings,
@@ -4430,7 +4433,7 @@ type ReviewListing = {
   rejectionReason?: string;
 };
 
-function ListingReviewPage({
+export function ListingReviewPage({
   records,
   reports,
   onAction,
@@ -4844,7 +4847,7 @@ function ListingReviewPage({
   );
 }
 
-function ManageUsersPage({
+export function ManageUsersPage({
   users,
   onUsersChange,
   onAction,
@@ -5186,7 +5189,7 @@ type SellerListingRecord = {
   rejectionReason?: string;
 };
 
-function SellerListingsPage({
+export function SellerListingsPage({
   records,
   onRecordsChange,
   onOpenListing,
@@ -5685,7 +5688,7 @@ type SellerReview = {
   hidden?: boolean;
 };
 
-function SellerReviewsPage({
+export function SellerReviewsPage({
   reviews,
   onReviewsChange,
   onOpenListing,
@@ -6072,7 +6075,7 @@ type SystemListing = {
   submitted: string;
 };
 
-function AllListingsPage({
+export function AllListingsPage({
   records,
   onRecordsChange,
   onOpenListing,
@@ -6360,7 +6363,7 @@ type SystemDeal = {
   end: string;
   status: string;
 };
-function AllDealsPage({ deals }: { deals: SystemDeal[] }) {
+export function AllDealsPage({ deals }: { deals: SystemDeal[] }) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("All types");
   const [status, setStatus] = useState("All statuses");
@@ -6487,7 +6490,7 @@ type SellerRating = {
   latestAt: string;
   listings: number;
 };
-function RatingsOverviewPage({
+export function RatingsOverviewPage({
   ratings,
   reviews,
   onRefresh,
@@ -6704,7 +6707,7 @@ function RatingsOverviewPage({
   );
 }
 
-function ProfilePage({
+export function ProfilePage({
   role,
   currentUsername,
   users,
@@ -6938,7 +6941,7 @@ function ProfilePage({
   );
 }
 
-function SupportingPage({
+export function SupportingPage({
   page,
   role,
   onAction,
@@ -7329,7 +7332,7 @@ function SupportingPage({
   );
 }
 
-function AuthPortal({
+export function AuthPortal({
   view,
   users,
   adminProfile,
