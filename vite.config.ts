@@ -13,4 +13,10 @@ export default defineConfig({
       '@': path.resolve(rootDir, './src'),
     },
   },
+  test: {
+    coverage: {
+      enabled: true,
+      provider: 'v8',
+    },
+  },
 })
