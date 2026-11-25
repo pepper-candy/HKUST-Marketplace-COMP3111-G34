@@ -438,9 +438,16 @@ const HK_TIME_ZONE = "Asia/Hong_Kong";
 function hongKongDateTimeToIso(value: string) {
   if (!value) return null;
   // datetime-local values from this app are wall-clock times in Hong Kong.
-  if (/T\d{2}:\d{2}$/.test(value)) return new Date(`${value}:00+08:00`).toISOString();
-  if (/T\d{2}:\d{2}:\d{2}$/.test(value)) return new Date(`${value}+08:00`).toISOString();
-  return new Date(value).toISOString();
+  if (/T\d{2}:\d{2}$/.test(value)) {
+    const date = new Date(`${value}:00+08:00`);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  if (/T\d{2}:\d{2}:\d{2}$/.test(value)) {
+    const date = new Date(`${value}+08:00`);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 export function hongKongDateTimeLocalValue(date = new Date()) {
