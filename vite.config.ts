@@ -22,6 +22,7 @@ export default defineConfig({
     coverage: {
       enabled: true,
       provider: 'v8',
+      reportsDirectory: path.resolve(rootDir, 'docs/coverage'),
     },
   },
 })
