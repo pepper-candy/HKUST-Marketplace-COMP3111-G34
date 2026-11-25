@@ -428,13 +428,25 @@ describe("App interactive branches", () => {
 
   test("MyDealsPage handles counters, return/completion, chat deletion, and refresh failures", async () => {
     const borrowed = deal({ id: 22, kind: "Borrow", status: "Borrowed" });
-    const pendingCounter = deal({ id: 23, kind: "Offer", status: "Countered" });
+    const pendingCounter = deal({
+      id: 23,
+      kind: "Offer",
+      status: "Countered",
+      lastActionBy: "seller",
+    });
+    const toAccept = deal({
+      id: 26,
+      kind: "Offer",
+      status: "Countered",
+      lastActionBy: "seller",
+      listing: listing({ id: 10, title: "Office chair" }),
+    });
     const accepted = deal({ id: 24, kind: "Claim", status: "Accepted" });
     mockedApi.listMyChatThreads.mockResolvedValue([
       { id: 8, listing: listing(), counterparty: "alice", lastMessage: "hello" },
     ]);
     const props = {
-      deals: [borrowed, pendingCounter, accepted],
+      deals: [borrowed, pendingCounter, toAccept, accepted],
       ratedDealIds: [],
       onRatedDealIdsChange: vi.fn(),
       chatOnlyListingIds: new Set<number>(),
@@ -451,7 +463,11 @@ describe("App interactive branches", () => {
     await waitFor(() => expect(mockedApi.returnBorrow).toHaveBeenCalledWith(22));
     expect(props.onAction).toHaveBeenCalledWith("Desk lamp marked as returned");
 
-    fireEvent.click(screen.getByRole("button", { name: "Counter" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Accept offer" })[1]);
+    await waitFor(() => expect(mockedApi.acceptCounterOffer).toHaveBeenCalledWith(26));
+    expect(props.onAction).toHaveBeenCalledWith("Office chair counter offer accepted");
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Counter" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Send counter" }));
     expect(screen.getByText("Enter a valid counter price.")).toBeTruthy();
     fireEvent.change(screen.getByPlaceholderText("Enter amount"), { target: { value: "180" } });
@@ -459,11 +475,10 @@ describe("App interactive branches", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send counter" }));
     await waitFor(() => expect(mockedApi.buyerCounterOffer).toHaveBeenCalledWith(23, expect.objectContaining({ price: 180 })));
     expect(props.onRecordFormalChat).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: /^Countered/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Accept offer" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Accept offer" }));
-    await waitFor(() => expect(mockedApi.acceptCounterOffer).toHaveBeenCalledWith(23));
-    expect(props.onAction).toHaveBeenCalledWith("Desk lamp counter offer accepted");
-
+    fireEvent.click(screen.getByRole("button", { name: /^Active/ }));
     fireEvent.click(screen.getByRole("button", { name: "Mark complete" }));
     await waitFor(() => expect(mockedApi.completeDeal).toHaveBeenCalledWith(24));
     expect(screen.getByText("Rate your experience")).toBeTruthy();

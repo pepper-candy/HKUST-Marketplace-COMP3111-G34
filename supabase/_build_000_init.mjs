@@ -22,6 +22,7 @@ const files = [
   ["030_borrow_max_duration.sql", "Borrow request cannot exceed listing lending duration"],
   ["031_report_includes_reason.sql", "Report reason in notify; dismiss report does not pull listing back"],
   ["032_listing_report_queue.sql", "Independent report cases; resolve reviewed or dismissed without pulling listing back"],
+  ["033_counter_turn_owner.sql", "Buyer counter sets turn to buyer; cannot accept own counter"],
 ];
 
 function stripTx(sql) {
@@ -31,7 +32,7 @@ function stripTx(sql) {
 const parts = [];
 parts.push(`-- HKUST Marketplace — fresh empty database (no demo accounts)
 -- Supabase Dashboard → SQL Editor → paste this whole file → Run.
--- Do not run this on a database that already has 001–032 applied.
+-- Do not run this on a database that already has 001–033 applied.
 -- Do not include service_role / sb_secret keys in the app or in git.
 --
 -- After this file:

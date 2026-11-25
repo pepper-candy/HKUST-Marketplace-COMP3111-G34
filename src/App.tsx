@@ -2528,6 +2528,8 @@ export type BuyerDeal = {
   dueDate?: string;
   /** Whether the deal has been marked complete. */
   completed?: boolean;
+  /** Participant who most recently changed the open offer. */
+  lastActionBy?: "buyer" | "seller" | null;
 };
 
 /**
@@ -2757,14 +2759,20 @@ export function MyDealsPage({
   const [counterError, setCounterError] = useState("");
   const [counterBusyId, setCounterBusyId] = useState<number | null>(null);
   const [deletingChatId, setDeletingChatId] = useState<number | null>(null);
-  const [tab, setTab] = useState<"Active" | "Chats" | "Completed">("Active");
+  const [tab, setTab] = useState<"Active" | "Countered" | "Chats" | "Completed">("Active");
   const [chats, setChats] = useState<api.MyChatThread[]>([]);
+  const waitingOnSeller = (deal: BuyerDeal) =>
+    deal.status === "Countered" && deal.lastActionBy === "buyer";
+  const buyerCanAnswerCounter = (deal: BuyerDeal) =>
+    deal.status === "Countered" && !deal.completed && deal.lastActionBy !== "buyer";
+  const counteredDeals = deals.filter((deal) => waitingOnSeller(deal) && !deal.completed);
   const activeDeals = deals.filter((deal) => {
     if (
       deal.completed ||
       deal.status === "Declined" ||
       deal.status === "Cancelled" ||
-      deal.status === "Returned"
+      deal.status === "Returned" ||
+      waitingOnSeller(deal)
     ) return false;
     return true;
   });
@@ -2919,11 +2927,14 @@ export function MyDealsPage({
         onRecordFormalChat(counteringDeal.listing, counteringDeal.listing.seller, detail, counteringDeal.id);
         onDealsChange(
           deals.map((item) =>
-            item.id === counteringDeal.id ? { ...item, status: "Countered", detail } : item,
+            item.id === counteringDeal.id
+              ? { ...item, status: "Countered", detail, lastActionBy: "buyer" }
+              : item,
           ),
         );
         onAction(`${counteringDeal.listing.title} counter sent`);
         setCounteringDeal(null);
+        setTab("Countered");
         setCounterPrice("");
         setCounterStart("");
         setCounterEnd("");
@@ -3053,7 +3064,7 @@ export function MyDealsPage({
               {completingDealId === deal.id ? "Completing…" : "Mark complete"}
             </button>
           )}
-          {deal.status === "Countered" && !deal.completed && (
+          {buyerCanAnswerCounter(deal) && (
             <>
               <button
                 type="button"
@@ -3121,6 +3132,9 @@ export function MyDealsPage({
             <strong>{activeDeals.length}</strong> Active
           </span>
           <span>
+            <strong>{counteredDeals.length}</strong> Countered
+          </span>
+          <span>
             <strong>{chats.length}</strong> Chats
           </span>
           <span>
@@ -3131,7 +3145,7 @@ export function MyDealsPage({
 
       <div className="request-toolbar">
         <div className="request-tabs">
-          {(["Active", "Chats", "Completed"] as const).map((option) => (
+          {(["Active", "Countered", "Chats", "Completed"] as const).map((option) => (
             <button
               key={option}
               className={tab === option ? "active" : ""}
@@ -3141,9 +3155,11 @@ export function MyDealsPage({
               <span>
                 {option === "Active"
                   ? activeDeals.length
-                  : option === "Chats"
-                    ? chats.length
-                    : completedDeals.length}
+                  : option === "Countered"
+                    ? counteredDeals.length
+                    : option === "Chats"
+                      ? chats.length
+                      : completedDeals.length}
               </span>
             </button>
           ))}
@@ -3179,6 +3195,29 @@ export function MyDealsPage({
                 <Icon name="bag" size={25} />
                 <h3>No active deals</h3>
                 <p>Your current offers, loans, and claims will appear here. Open conversations are in Chats.</p>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {tab === "Countered" && (
+        <>
+          <div className="deals-section-heading">
+            <div>
+              <h2>Countered</h2>
+              <p>You sent a counter. Wait for the seller to accept, decline, or counter back.</p>
+            </div>
+            <span>{counteredDeals.length}</span>
+          </div>
+          <div className="deals-list">
+            {counteredDeals.length ? (
+              counteredDeals.map(dealCard)
+            ) : (
+              <div className="empty-state compact">
+                <Icon name="inbox" size={25} />
+                <h3>No countered deals</h3>
+                <p>After you send a counter, the deal moves here until the seller replies.</p>
               </div>
             )}
           </div>

@@ -130,6 +130,8 @@ export type BuyerDeal = {
   dueDate?: string;
   /** Whether the deal has been marked complete. */
   completed?: boolean;
+  /** Participant who most recently changed the open offer. */
+  lastActionBy?: "buyer" | "seller" | null;
 };
 
 /** Seller-facing view of a buyer request and its current listing state. */
@@ -1346,6 +1348,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
         detail: unifyStoredOfferDetail(offer.detail),
         dueDate: offer.end_at ? formatDateTime(offer.end_at) : undefined,
         completed,
+        lastActionBy: offer.last_action_by,
       } satisfies BuyerDeal;
     })
     .filter((deal): deal is BuyerDeal => Boolean(deal));
