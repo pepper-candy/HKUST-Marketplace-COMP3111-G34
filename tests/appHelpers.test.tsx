@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   avatarInitials,
+  chatOffersForListing,
   dealsDonutBackground,
   isInitialOfferBubble,
   isUsableListingPhoto,
@@ -30,6 +31,12 @@ describe("App helper functions", () => {
       [],
     );
     expect(result[1][0].offerStatus).toBe("Accepted");
+    const unchanged = syncChatOfferStatuses(current, [], []);
+    expect(unchanged).toBe(current);
+    const noOfferId = { 1: [{ ...current[1][0], offerId: undefined }] };
+    expect(syncChatOfferStatuses(noOfferId, [], [{ id: 8, status: "unmapped" }] as any)).toBe(
+      noOfferId,
+    );
   });
 
   test("latestOffersByBuyer and mergeListingOffers retain latest buyer entries", () => {
@@ -47,6 +54,9 @@ describe("App helper functions", () => {
       { label: "Sold", count: 1, tone: "sold" },
       { label: "Given", count: 1, tone: "given" },
     ])).toContain("conic-gradient");
+    expect(
+      dealsDonutBackground([{ label: "Other", count: 2, tone: "unknown" as any }]),
+    ).toContain("var(--navy)");
   });
 
   test("withListingChatPeople merges people without duplicate buyers", () => {
@@ -59,6 +69,32 @@ describe("App helper functions", () => {
         ],
       ),
     ).toHaveLength(2);
+    expect(
+      withListingChatPeople([], [
+        { id: "p1", buyer: "", lastMessage: "ignored" },
+        { id: "p2", buyer: "Bob", lastMessage: "" },
+      ]),
+    ).toEqual([
+      { id: "p2", buyer: "Bob", type: "Chat", detail: "Conversation started", status: "Chat" },
+    ]);
+  });
+
+  test("chatOffersForListing handles empty buyers, sender filtering, and listing types", () => {
+    const messages = [
+      { id: 1, sender: "buyer" as const, body: "Borrow until Friday", time: "", kind: "offer" as const },
+      { id: 2, sender: "seller" as const, body: "Offer: HK$80", time: "", kind: "offer" as const, offerId: 2 },
+      { id: 3, sender: "buyer" as const, body: "Hello", time: "", kind: "message" as const },
+    ];
+    const sellListing = { type: "Sell" } as any;
+    const giveaway = { type: "Give Away" } as any;
+    expect(chatOffersForListing(sellListing, messages, "  ", "Seller")).toEqual([]);
+    expect(chatOffersForListing(sellListing, messages, "bob", "Buyer")).toMatchObject([
+      { id: "chat-1", buyer: "bob", type: "Borrow", status: "Pending" },
+    ]);
+    expect(chatOffersForListing(giveaway, messages, "bob", "Seller")).toMatchObject([
+      { type: "Borrow" },
+      { id: 2, type: "Claim" },
+    ]);
   });
 
   test("avatarInitials handles names and empty values", () => {
