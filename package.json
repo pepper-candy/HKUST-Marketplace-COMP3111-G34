@@ -23,6 +23,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
     "@vitest/coverage-v8": "^5.1.1",
+    "@vitest/ui": "^5.1.1",
     "jsdom": "^26.1.0",
     "oxfmt": "^0.76.0",
     "tailwindcss": "^4.0.0",
