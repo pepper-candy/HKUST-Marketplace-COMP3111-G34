@@ -15,6 +15,10 @@ export default defineConfig({
   },
   test: {
     setupFiles: ['./tests/setup.ts'],
+    reporters: [
+      'default',
+      ['html', { outputDir: path.resolve(rootDir, 'docs/test_report'), singleFile: true }],
+    ],
     coverage: {
       enabled: true,
       provider: 'v8',
