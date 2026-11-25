@@ -1,0 +1,12 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/App.tsx",
+    "src/lib/api.ts",
+    "src/lib/busy.ts",
+    "src/lib/supabase.ts"
+  ],
+  "out": "docs/typedoc",
+  "excludeExternals": true,
+  "readme": "none"
+}

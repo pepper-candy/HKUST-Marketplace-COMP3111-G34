@@ -1,124 +1,222 @@
 import { supabase } from "./supabase";
 
+/** Marketplace role that controls available pages and actions. */
 export type Role = "Buyer" | "Seller" | "Admin";
 
+/** Public profile fields shared by buyer and seller accounts. */
 export type MarketplaceUser = {
+  /** Unique profile identifier. */
   id?: string;
+  /** Account username. */
   username: string;
+  /** User's display name. */
   fullName: string;
+  /** Marketplace role for this account. */
   role: "Buyer" | "Seller";
+  /** Residence or hall information. */
   residence?: string;
+  /** Public profile biography. */
   bio?: string;
+  /** Preferred meetup locations. */
   meetups?: string[];
+  /** Whether the account is active or deactivated. */
   status?: "Active" | "Deactivated";
 };
 
+/** Local administrator identity and display information. */
 export type AdminProfile = {
+  /** Administrator sign-in username. */
   username: string;
+  /** Administrator password for the local sign-in flow. */
   password: string;
+  /** Administrator's display name. */
   fullName: string;
 };
 
+/** Marketplace listing data used throughout the application. */
 export type Listing = {
+  /** Unique listing identifier. */
   id: number;
+  /** Listing title. */
   title: string;
+  /** Seller's username. */
   seller: string;
+  /** Listing category. */
   category: string;
+  /** Whether the item is sold, lent, or given away. */
   type: "Sell" | "Lend" | "Give Away";
+  /** Asking price for a sale listing. */
   price?: number;
+  /** Maximum lending duration amount. */
   duration?: number;
+  /** Unit for the maximum lending duration. */
   durationUnit?: "Hours" | "Days" | "Weeks";
+  /** Item condition. */
   condition: string;
+  /** Preferred meetup location. */
   location: string;
+  /** Human-readable posting date. */
   posted: string;
+  /** Primary listing photo URL. */
   image: string;
+  /** Additional listing photo URLs. */
   images?: string[];
+  /** Seller-provided item description. */
   description: string;
+  /** Number of listing views. */
   views?: number;
+  /** Current availability or moderation status. */
   availability?: string;
+  /** Seller's full display name, when available. */
   sellerFullName?: string;
+  /** Seller's average rating, when available. */
   sellerRating?: number;
+  /** Number of seller reviews, when available. */
   sellerReviewCount?: number;
 };
 
+/** Normalized status of an offer displayed in a chat thread. */
 export type ChatOfferStatus = "Pending" | "Accepted" | "Declined" | "Countered";
 
+/** Chat message or formal offer after mapping from the database. */
 export type ChatMessage = {
+  /** Unique message identifier. */
   id: number;
+  /** Whether the message was sent by the buyer or seller. */
   sender: "buyer" | "seller";
+  /** Message text or offer details. */
   body: string;
+  /** Human-readable message time. */
   time: string;
+  /** Distinguishes regular messages from formal offers. */
   kind?: "message" | "offer";
+  /** Associated formal offer identifier. */
   offerId?: number;
+  /** Current status of the associated offer. */
   offerStatus?: ChatOfferStatus;
 };
 
+/** Chat thread summary for the current user's inbox. */
 export type MyChatThread = {
+  /** Unique chat thread identifier. */
   id: number;
+  /** Listing discussed in the thread. */
   listing: Listing;
+  /** Other participant's username. */
   counterparty: string;
+  /** Most recent message text. */
   lastMessage: string;
+  /** Human-readable time of the latest activity. */
   updated: string;
 };
 
+/** Buyer-facing summary of a listing offer, borrow, or claim. */
 export type BuyerDeal = {
+  /** Unique offer or deal identifier. */
   id: number;
+  /** Listing associated with the transaction. */
   listing: Listing;
+  /** Transaction type requested by the buyer. */
   kind: "Offer" | "Borrow" | "Claim";
+  /** Current offer or deal status. */
   status: string;
+  /** Human-readable activity date. */
   date: string;
+  /** Original timestamp used for sorting, when available. */
   rawDate?: string;
+  /** Offer amount, requested period, or other transaction details. */
   detail: string;
+  /** Borrow return date, when applicable. */
   dueDate?: string;
+  /** Whether the deal has been marked complete. */
   completed?: boolean;
 };
 
+/** Seller-facing view of a buyer request and its current listing state. */
 export type SellerRequest = {
+  /** Unique request identifier. */
   id: number;
+  /** Associated deal identifier. */
   dealId: number;
+  /** Listing receiving the request. */
   listing: Listing;
+  /** Requesting buyer's username. */
   buyer: string;
+  /** Participant who most recently changed the request. */
   lastActionBy: "buyer" | "seller" | null;
+  /** Requested sale, borrowing, or giveaway action. */
   type: "Offer" | "Borrow" | "Claim";
+  /** Human-readable request submission time. */
   submitted: string;
+  /** Offer amount, requested period, or other request details. */
   detail: string;
+  /** Current request status. */
   status: "Pending" | "Accepted" | "Declined" | "Countered";
+  /** Listing availability when the request was mapped. */
   listingStatus: "Available" | "Reserved" | "Sold" | "Lent" | "Given";
 };
 
+/** Application-ready notification content and its optional action targets. */
 export type NotificationItem = {
+  /** Unique notification identifier. */
   id: number;
+  /** Notification category used for filtering. */
   category: string;
+  /** Short notification heading. */
   title: string;
+  /** Detailed notification text. */
   message: string;
+  /** Human-readable notification time. */
   timestamp: string;
+  /** Relative date group used to organize notifications. */
   dateGroup: "Today" | "Earlier";
+  /** Icon name representing the notification. */
   icon: string;
+  /** Visual color tone for the notification. */
   tone: "navy" | "gold" | "green" | "red";
+  /** Optional action label shown with the notification. */
   action?: string;
+  /** Listing targeted by the notification action. */
   listingId?: number;
+  /** Chat thread targeted by the notification action. */
   threadId?: number;
 };
 
+/** Listing review record shown in the administrator queue. */
 export type ReviewListing = {
+  /** Unique listing identifier. */
   id: number;
+  /** Listing awaiting or having completed moderation. */
   listing: Listing;
+  /** Seller's full display name. */
   sellerFullName: string;
+  /** Human-readable submission time. */
   submitted: string;
+  /** Current moderation status. */
   status: "Pending Review" | "Approved" | "Rejected" | "Removed";
+  /** Administrator's explanation when the listing is rejected. */
   rejectionReason?: string;
 };
 
+/** User-submitted report and its moderation resolution, if closed. */
 export type ListingReport = {
+  /** Unique report identifier. */
   id: number;
+  /** Listing referenced by the report. */
   listing: Listing;
+  /** Username of the reporting user. */
   reporter: string;
+  /** User-provided reason for the report. */
   reason: string;
+  /** Human-readable report submission time. */
   submitted: string;
+  /** Whether the report still requires moderation. */
   status: "Pending" | "Closed";
+  /** Resolution recorded when the report was closed. */
   closedAs?: "reviewed" | "dismissed";
 };
 
+/** Lifecycle states shown in the seller's listing manager. */
 export type SellerListingStatus =
   | "Pending"
   | "Live"
@@ -128,35 +226,62 @@ export type SellerListingStatus =
   | "Lent"
   | "Given";
 
+/** Seller listing with its activity count and moderation metadata. */
 export type SellerListingRecord = {
+  /** Unique listing identifier. */
   id: number;
+  /** Seller's listing data. */
   listing: Listing;
+  /** Current seller-facing listing lifecycle state. */
   status: SellerListingStatus;
+  /** Number of active offers or requests. */
   activeOffers: number;
+  /** Human-readable time of the latest listing update. */
   updated: string;
+  /** Administrator's explanation when the listing was rejected. */
   rejectionReason?: string;
 };
 
+/** Buyer review with seller response and moderation fields. */
 export type SellerReview = {
+  /** Unique review identifier. */
   id: number;
+  /** Buyer-submitted star rating. */
   rating: number;
+  /** Buyer's written review. */
   text: string;
+  /** Buyer's username. */
   buyer: string;
+  /** Reviewed seller's username. */
   sellerUsername: string;
+  /** Human-readable review date. */
   date: string;
+  /** ISO-like date key used for sorting and filtering. */
   dateKey: string;
+  /** Listing associated with the completed deal. */
   listing: Listing;
+  /** Seller's reply to the review. */
   reply?: string;
+  /** Human-readable reply time. */
   repliedAt?: string;
+  /** Whether the review was flagged for moderation. */
   flagged?: boolean;
+  /** Reason provided when the review was flagged. */
   flagReason?: string;
+  /** Whether administrators have hidden the review. */
   hidden?: boolean;
 };
 
+/** Administrator-wide listing record with moderation status. */
 export type SystemListing = {
+  /** Unique listing identifier. */
   id: number;
+  /** Listing data visible to administrators. */
   listing: Listing;
+  /** Seller's full display name. */
   sellerFullName: string;
+  /** Current system-wide listing status. */
+  /** Current system-wide listing status. */
   status:
     | "Pending Review"
     | "Live"
@@ -166,69 +291,135 @@ export type SystemListing = {
     | "Given"
     | "Rejected"
     | "Removed";
+  /** Human-readable listing submission time. */
   submitted: string;
 };
 
+/** Administrator-wide summary of a marketplace deal. */
 export type SystemDeal = {
+  /** Unique deal identifier. */
   id: number;
+  /** Listing title associated with the deal. */
   title: string;
+  /** Buyer's username. */
   buyer: string;
+  /** Seller's username. */
   seller: string;
+  /** Completed transaction type. */
   type: "Sold" | "Lent" | "Given";
+  /** Deal start date. */
   start: string;
+  /** Deal end or return date. */
   end: string;
+  /** Current deal status. */
   status: string;
 };
 
+/** Aggregate public rating statistics for one seller. */
 export type SellerRating = {
+  /** Seller's username. */
   seller: string;
+  /** Seller's full display name. */
   name: string;
+  /** Average star rating. */
   average: number;
+  /** Total number of reviews. */
   reviews: number;
+  /** Number of five-star reviews. */
   fiveStar: number;
+  /** Human-readable date of the latest review. */
   latest: string;
+  /** Timestamp of the latest review. */
   latestAt: string;
+  /** Number of listings associated with the seller. */
   listings: number;
 };
 
+/** Completed transaction shown in a user's history. */
 export type HistoryDeal = {
+  /** Unique deal identifier. */
   id: number;
+  /** Listing associated with the completed transaction. */
   listing: Listing;
+  /** Deal date. */
   date: string;
+  /** Buyer's transaction outcome. */
   type: "Bought" | "Borrowed" | "Received";
+  /** Human-readable final deal status. */
   outcome: string;
 };
 
+/** Aggregated seller activity and chart data for the dashboard. */
 export type SellerStats = {
+  /** Total listing views for the seller. */
   views: number;
+  /** Total offers received. */
   offers: number;
+  /** Number of completed deals. */
   completed: number;
+  /** Seller's average star rating. */
   averageRating: number;
-  viewsByListing: { title: string; views: number }[];
-  dealsByType: { label: string; count: number; tone: string }[];
+  /** Per-listing view counts used by the dashboard chart. */
+  viewsByListing: {
+    /** Listing title. */
+    title: string;
+    /** Number of views for the listing. */
+    views: number;
+  }[];
+  /** Deal counts grouped by transaction type for the dashboard chart. */
+  dealsByType: {
+    /** Transaction type displayed in the chart legend. */
+    label: string;
+    /** Number of deals in this transaction type. */
+    count: number;
+    /** CSS color identifier for the chart segment. */
+    tone: string;
+  }[];
 };
 
+/** Complete marketplace state assembled for the authenticated session. */
 export type MarketplaceSnapshot = {
+  /** Authenticated profile identifier. */
   currentUserId: string;
+  /** Authenticated user's username. */
   currentUsername: string;
+  /** Authenticated user's marketplace role. */
   role: Role;
+  /** Buyer and seller profile data available to the session. */
   users: MarketplaceUser[];
+  /** Administrator sign-in profile. */
   adminProfile: AdminProfile;
+  /** All listing records accessible to the current session. */
   listings: Listing[];
+  /** Listings currently available to browse. */
   liveListings: Listing[];
+  /** Current user's buyer-side deals. */
   buyerDeals: BuyerDeal[];
+  /** Requests received by the current seller. */
   sellerRequests: SellerRequest[];
+  /** Notifications available to the current user. */
   notifications: NotificationItem[];
+  /** IDs of notifications already marked as read. */
   readNotificationIds: number[];
+  /** Listings in the administrator review queue. */
   reviewListings: ReviewListing[];
+  /** Reports awaiting or having completed moderation. */
   listingReports: ListingReport[];
+  /** Current seller's listings and their lifecycle metadata. */
   sellerListingRecords: SellerListingRecord[];
+  /** Reviews associated with the current seller. */
   sellerReviews: SellerReview[];
+  /** System-wide listing records for administrator screens. */
   systemListings: SystemListing[];
+  /** System-wide deals for administrator screens. */
   systemDeals: SystemDeal[];
+  /** Aggregate seller rating summaries. */
   sellerRatings: SellerRating[];
+  /** Deal IDs the current buyer has already rated. */
   ratedDealIds: number[];
+  /** Completed transaction history for the current user. */
   historyDeals: HistoryDeal[];
+  /** Aggregate seller activity and chart data. */
   sellerStats: SellerStats;
 };
 
@@ -313,6 +504,7 @@ const PLACEHOLDER_IMAGE =
     '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect fill="#e8eef6" width="100%" height="100%"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7a8aa0" font-size="28">No photo</text></svg>',
   );
 
+/** Categories accepted by listing creation and editing forms. */
 export const LISTING_CATEGORIES = [
   "Electronics",
   "Books & Course Materials",
@@ -322,6 +514,7 @@ export const LISTING_CATEGORIES = [
   "Other",
 ] as const;
 
+/** Password-strength checks displayed by account forms. */
 export const passwordRules = [
   { label: "At least 8 characters", test: (value: string) => value.length >= 8 },
   { label: "One uppercase letter", test: (value: string) => /[A-Z]/.test(value) },
@@ -329,6 +522,11 @@ export const passwordRules = [
   { label: "One number", test: (value: string) => /\d/.test(value) },
 ];
 
+/**
+ * Converts a marketplace username into the email identifier used by Supabase Auth.
+ *
+ * @param username Marketplace account name to normalize and convert.
+ */
 export function authEmailFromUsername(username: string) {
   const normalized = username.trim().toLowerCase();
   if (normalized.includes("@")) return normalized;
@@ -450,6 +648,11 @@ function hongKongDateTimeToIso(value: string) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+/**
+ * Formats a date as a local datetime string in the Asia/Hong_Kong time zone.
+ *
+ * @param date Date to format; defaults to the current time.
+ */
 export function hongKongDateTimeLocalValue(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: HK_TIME_ZONE,
@@ -499,6 +702,12 @@ function snapHongKongToTenMinutes(date: Date) {
   return `${year}-${padHongKongPart(month)}-${padHongKongPart(day)}T${padHongKongPart(hour)}:${padHongKongPart(minute)}:00`;
 }
 
+/**
+ * Converts a supported lending duration to milliseconds, or returns `null` if invalid.
+ *
+ * @param value Positive duration amount.
+ * @param unit Duration unit, such as hours, days, or weeks.
+ */
 export function lendingDurationMs(value?: number | null, unit?: string | null) {
   if (value == null || value <= 0 || !unit) return null;
   const normalized = unit.toLowerCase();
@@ -508,17 +717,34 @@ export function lendingDurationMs(value?: number | null, unit?: string | null) {
   return null;
 }
 
+/**
+ * Formats a lending duration for display, using a singular unit when appropriate.
+ *
+ * @param value Duration amount.
+ * @param unit Unit label to display.
+ */
 export function formatLendingDuration(value?: number | null, unit?: string | null) {
   if (value == null || !unit) return "";
   const label = value === 1 ? unit.replace(/s$/i, "") : unit;
   return `${value} ${label}`;
 }
 
+/**
+ * Returns the listing's maximum borrow period in milliseconds, if one is set.
+ *
+ * @param listing Listing duration settings, when available.
+ */
 export function listingMaxBorrowMs(listing?: Pick<Listing, "duration" | "durationUnit"> | null) {
   if (!listing) return null;
   return lendingDurationMs(listing.duration, listing.durationUnit);
 }
 
+/**
+ * Creates a default Hong Kong borrow period, capped by the listing duration.
+ *
+ * @param now Reference time used to calculate the suggested start.
+ * @param listing Optional maximum lending duration for the listing.
+ */
 export function defaultBorrowPeriod(
   now = new Date(),
   listing?: Pick<Listing, "duration" | "durationUnit"> | null,
@@ -532,6 +758,13 @@ export function defaultBorrowPeriod(
   return { start, end };
 }
 
+/**
+ * Validates a borrow interval and returns a user-facing error, or `null` when valid.
+ *
+ * @param start Proposed local start date and time.
+ * @param end Proposed local end date and time.
+ * @param listing Optional listing duration limit to enforce.
+ */
 export function borrowPeriodError(
   start: string,
   end: string,
@@ -595,6 +828,11 @@ function formatDateTime(iso: string) {
   }).format(new Date(iso));
 }
 
+/**
+ * Formats an offer, borrow request, or giveaway claim for display.
+ *
+ * @param input Listing action details; price is used for sales and dates for lending.
+ */
 export function offerDetailLabel(input: {
   type: Listing["type"] | "Sell" | "Lend" | "Give Away";
   price?: number;
@@ -610,6 +848,11 @@ export function offerDetailLabel(input: {
   return `Offer: HK$${Number(input.price).toLocaleString()}`;
 }
 
+/**
+ * Normalizes database offer statuses to the status vocabulary used in chat.
+ *
+ * @param status Database status value to normalize.
+ */
 export function chatOfferStatusUi(status: string | undefined | null): ChatOfferStatus | undefined {
   if (!status) return undefined;
   const value = status.toLowerCase();
@@ -665,6 +908,11 @@ function notificationTone(value: string | null | undefined): NotificationItem["t
   return "navy";
 }
 
+/**
+ * Converts a database notification row into its application-facing shape.
+ *
+ * @param row Raw notification record returned by the database.
+ */
 export function notificationFromRow(row: {
   id: number;
   category: string;
@@ -692,6 +940,14 @@ export function notificationFromRow(row: {
   };
 }
 
+/**
+ * Converts a database chat row into a message, assigning sender and offer state.
+ *
+ * @param row Raw chat-message record.
+ * @param myRole Current user's role, used to map the sender.
+ * @param myId Current user's profile ID.
+ * @param offerStatus Optional normalized status for an associated offer.
+ */
 export function chatMessageFromRow(
   row: {
     id: number;
@@ -720,6 +976,12 @@ export function chatMessageFromRow(
   };
 }
 
+/**
+ * Inserts a realtime message or replaces its matching optimistic local message.
+ *
+ * @param list Current messages for the thread.
+ * @param incoming Newly received server message.
+ */
 export function mergeRealtimeChatMessage(list: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
   if (list.some((item) => item.id === incoming.id)) return list;
   const temp = [...list]
@@ -824,6 +1086,11 @@ function buyerDealStatus(offer: OfferRow, listing: ListingRow) {
   return "Pending";
 }
 
+/**
+ * Creates a buyer or seller Auth account and its profile metadata.
+ *
+ * @param input Account credentials, identity, role, and optional profile details.
+ */
 export async function registerAccount(input: {
   username: string;
   fullName: string;
@@ -871,6 +1138,11 @@ export async function registerAccount(input: {
   await supabase.auth.signOut();
 }
 
+/**
+ * Resolves a username, authenticates it, and verifies its active role.
+ *
+ * @param input Username, password, and expected marketplace role.
+ */
 export async function loginAccount(input: {
   username: string;
   password: string;
@@ -935,10 +1207,12 @@ export async function loginAccount(input: {
   return { role, username: profile.username as string };
 }
 
+/** Signs out the current Supabase Auth session. */
 export async function logoutAccount() {
   await supabase.auth.signOut();
 }
 
+/** Restores an active authenticated profile, signing out invalid sessions. */
 export async function restoreSession() {
   const { data } = await supabase.auth.getSession();
   if (!data.session) return null;
@@ -955,6 +1229,7 @@ export async function restoreSession() {
   return { role: roleUi(profile.role), username: profile.username as string };
 }
 
+/** Loads and maps the marketplace data required by the current session. */
 export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
@@ -1345,6 +1620,11 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   };
 }
 
+/**
+ * Updates the signed-in profile and optionally changes its password.
+ *
+ * @param input New full name and optional profile or password changes.
+ */
 export async function updateOwnProfile(input: {
   fullName: string;
   bio?: string;
@@ -1368,6 +1648,11 @@ export async function updateOwnProfile(input: {
   }
 }
 
+/**
+ * Creates a listing for the signed-in seller or an administrator-selected seller.
+ *
+ * @param input Listing fields, optional seller ID, photos, and publication choice.
+ */
 export async function createListing(input: {
   type: Listing["type"];
   title: string;
@@ -1402,6 +1687,12 @@ export async function createListing(input: {
   throwIf(error);
 }
 
+/**
+ * Updates editable listing fields and notifies buyers with active offers.
+ *
+ * @param listingId ID of the listing to update.
+ * @param patch Replacement listing fields and optional photos or resubmission flag.
+ */
 export async function updateListingDetails(
   listingId: number,
   patch: {
@@ -1442,6 +1733,11 @@ export async function updateListingDetails(
 
 const recentListingViews = new Map<number, number>();
 
+/**
+ * Increments a listing's view count, suppressing duplicate requests briefly.
+ *
+ * @param listingId ID of the viewed listing.
+ */
 export async function incrementViews(listingId: number) {
   const now = Date.now();
   const last = recentListingViews.get(listingId) ?? 0;
@@ -1457,6 +1753,12 @@ export async function incrementViews(listingId: number) {
   return data as number;
 }
 
+/**
+ * Creates a price offer, borrowing request, or giveaway claim for a listing.
+ *
+ * @param listing Listing receiving the buyer's action.
+ * @param input Optional offer price or proposed borrowing dates.
+ */
 export async function submitListingAction(
   listing: Listing,
   input: { price?: number; start?: string; end?: string },
@@ -1477,6 +1779,13 @@ export async function submitListingAction(
   return data as number;
 }
 
+/**
+ * Best-effort sync of a saved buyer offer into its chat thread.
+ *
+ * @param listingId Listing associated with the offer.
+ * @param body Offer text to post to chat.
+ * @param offerId ID of the persisted offer.
+ */
 export async function postOfferChatIfBuyerThread(
   listingId: number,
   body: string,
@@ -1490,6 +1799,13 @@ export async function postOfferChatIfBuyerThread(
   }
 }
 
+/**
+ * Accepts, declines, or counters a seller request.
+ *
+ * @param offerId ID of the buyer's request.
+ * @param action Seller response to apply.
+ * @param counter Optional price or borrowing dates for a counter-offer.
+ */
 export async function respondToOffer(
   offerId: number,
   action: "accept" | "decline" | "counter",
@@ -1505,6 +1821,12 @@ export async function respondToOffer(
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Sends a seller counter-offer, falling back to the generic counter RPC if needed.
+ *
+ * @param offerId ID of the request being countered.
+ * @param offer Proposed counter price or borrowing dates.
+ */
 export async function sellerMakeOffer(
   offerId: number,
   offer: { price?: number; start?: string; end?: string },
@@ -1525,11 +1847,21 @@ export async function sellerMakeOffer(
   await respondToOffer(offerId, "counter", offer);
 }
 
+/**
+ * Accepts the buyer's current counter-offer.
+ *
+ * @param offerId ID of the counter-offer to accept.
+ */
 export async function acceptCounterOffer(offerId: number) {
   const { error } = await supabase.rpc("accept_counter_offer", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Accepts the current price of a listing and returns the created deal ID.
+ *
+ * @param listing Listing whose current price the buyer accepts.
+ */
 export async function acceptListingPrice(listing: Listing) {
   const { data, error } = await supabase.rpc("accept_listing_price", {
     p_listing_id: listing.id,
@@ -1538,16 +1870,32 @@ export async function acceptListingPrice(listing: Listing) {
   return data as number;
 }
 
+/**
+ * Declines the seller's current counter-offer.
+ *
+ * @param offerId ID of the counter-offer to decline.
+ */
 export async function declineCounterOffer(offerId: number) {
   const { error } = await supabase.rpc("decline_counter_offer", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Declines a pending or countered offer as the buyer.
+ *
+ * @param offerId ID of the buyer's offer to decline.
+ */
 export async function buyerDeclineOffer(offerId: number) {
   const { error } = await supabase.rpc("buyer_decline_offer", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Sends a buyer counter-offer with an optional price or borrowing interval.
+ *
+ * @param offerId ID of the offer being countered.
+ * @param counter Proposed price or borrowing interval.
+ */
 export async function buyerCounterOffer(
   offerId: number,
   counter: { price?: number; start?: string; end?: string },
@@ -1583,11 +1931,23 @@ export async function buyerCounterOffer(
   if (fallbackError) throw new Error(rpcMessage(fallbackError));
 }
 
+/**
+ * Marks an accepted borrowing deal as returned.
+ *
+ * @param offerId ID of the borrowing offer to return.
+ */
 export async function returnBorrow(offerId: number) {
   const { error } = await supabase.rpc("return_borrow", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Completes a deal and optionally records the buyer's rating and review.
+ *
+ * @param offerId ID of the deal to complete.
+ * @param stars Optional star rating to submit with completion.
+ * @param review Optional written review to submit with completion.
+ */
 export async function completeDeal(offerId: number, stars?: number, review?: string) {
   const { error } = await supabase.rpc("complete_deal", {
     p_offer_id: offerId,
@@ -1597,6 +1957,13 @@ export async function completeDeal(offerId: number, stars?: number, review?: str
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Approves, rejects, or removes a listing through the moderation RPC.
+ *
+ * @param listingId ID of the listing under moderation.
+ * @param action Moderation decision to apply.
+ * @param reason Optional written explanation for rejection or removal.
+ */
 export async function moderateListing(
   listingId: number,
   action: "approve" | "reject" | "remove",
@@ -1610,6 +1977,11 @@ export async function moderateListing(
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Removes one of the signed-in seller's listings.
+ *
+ * @param listingId ID of the listing to remove.
+ */
 export async function sellerRemoveListing(listingId: number) {
   const { error } = await supabase.rpc("seller_remove_listing", {
     p_listing_id: listingId,
@@ -1618,6 +1990,12 @@ export async function sellerRemoveListing(listingId: number) {
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Updates an account's administrator-editable profile fields.
+ *
+ * @param userId ID of the account to update.
+ * @param patch Replacement full name and optional residence.
+ */
 export async function adminUpdateUser(
   userId: string,
   patch: { fullName: string; residence?: string },
@@ -1629,16 +2007,33 @@ export async function adminUpdateUser(
   throwIf(error);
 }
 
+/**
+ * Activates or deactivates an account through the administrator RPC.
+ *
+ * @param userId ID of the account to update.
+ * @param status New account status.
+ */
 export async function adminSetUserStatus(userId: string, status: "active" | "deactivated") {
   const { error } = await supabase.rpc("set_user_status", { p_user_id: userId, p_status: status });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Soft-deletes a user account while preserving marketplace records.
+ *
+ * @param userId ID of the account to delete.
+ */
 export async function adminDeleteUser(userId: string) {
   const { error } = await supabase.rpc("soft_delete_user", { p_user_id: userId });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Submits a safety report for a listing.
+ *
+ * @param listingId ID of the listing being reported.
+ * @param reason Optional explanation for the report.
+ */
 export async function reportListing(listingId: number, reason?: string) {
   const { error } = await supabase.rpc("report_listing", {
     p_listing_id: listingId,
@@ -1647,6 +2042,12 @@ export async function reportListing(listingId: number, reason?: string) {
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Closes a listing report as reviewed or dismissed.
+ *
+ * @param reportId ID of the report to resolve.
+ * @param resolution Resolution to record.
+ */
 export async function resolveListingReport(
   reportId: number,
   resolution: "reviewed" | "dismissed",
@@ -1658,11 +2059,23 @@ export async function resolveListingReport(
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Hides or restores a seller rating using the moderation RPC.
+ *
+ * @param ratingId ID of the rating to moderate.
+ * @param hidden Whether the rating should be hidden; defaults to `true`.
+ */
 export async function hideRating(ratingId: number, hidden = true) {
   const { error } = await supabase.rpc("hide_rating", { p_rating_id: ratingId, p_hidden: hidden });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/**
+ * Saves a seller's reply to a buyer rating.
+ *
+ * @param ratingId ID of the rating being answered.
+ * @param reply Seller's response text.
+ */
 export async function replyToReview(ratingId: number, reply: string) {
   const { error } = await supabase
     .from("ratings")
@@ -1671,6 +2084,12 @@ export async function replyToReview(ratingId: number, reply: string) {
   throwIf(error);
 }
 
+/**
+ * Flags a rating for administrator moderation with the supplied reason.
+ *
+ * @param ratingId ID of the rating to flag.
+ * @param reason Explanation sent to the moderation queue.
+ */
 export async function flagReview(ratingId: number, reason: string) {
   const { error } = await supabase
     .from("ratings")
@@ -1679,6 +2098,11 @@ export async function flagReview(ratingId: number, reason: string) {
   throwIf(error);
 }
 
+/**
+ * Marks the specified notifications as read for the current account.
+ *
+ * @param ids Notification IDs to mark as read.
+ */
 export async function markNotificationsRead(ids: number[]) {
   const { error } = await supabase.rpc("mark_notifications_read", { p_ids: ids });
   if (error) throw new Error(rpcMessage(error));
@@ -1715,6 +2139,11 @@ function isMissingRpc(error: { code?: string; message: string }) {
   );
 }
 
+/**
+ * Hides a chat thread for the current user and remembers the local dismissal.
+ *
+ * @param threadId ID of the chat thread to hide.
+ */
 export async function deleteChatThread(threadId: number) {
   hideDeletedChatThreadLocally(threadId);
 
@@ -1725,6 +2154,7 @@ export async function deleteChatThread(threadId: number) {
   throw new Error(rpcMessage(error));
 }
 
+/** Lists visible chat threads for the authenticated account. */
 export async function listMyChatThreads(): Promise<MyChatThread[]> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return [];
@@ -1812,6 +2242,11 @@ export async function listMyChatThreads(): Promise<MyChatThread[]> {
     .map(({ sortKey: _sortKey, ...thread }) => thread);
 }
 
+/**
+ * Lists chat participants and their latest message for one listing.
+ *
+ * @param listingId ID of the listing whose chat participants are requested.
+ */
 export async function listListingChatPeople(listingId: number) {
   const { data: threads, error } = await supabase
     .from("chat_threads")
@@ -1851,6 +2286,12 @@ export async function listListingChatPeople(listingId: number) {
   }));
 }
 
+/**
+ * Finds a chat with a username, optionally restricted to a listing.
+ *
+ * @param username Username of the chat participant to find.
+ * @param listingId Optional listing ID used to select a matching thread.
+ */
 export async function findChatWithUsername(username: string, listingId?: number) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user || !username) return null;
@@ -1908,11 +2349,21 @@ export async function findChatWithUsername(username: string, listingId?: number)
   };
 }
 
+/**
+ * Looks up the profile ID associated with an exact username.
+ *
+ * @param username Exact marketplace username to look up.
+ */
 export async function profileIdByUsername(username: string) {
   const { data } = await supabase.from("profiles").select("id").eq("username", username).maybeSingle();
   return (data?.id as string | undefined) ?? null;
 }
 
+/**
+ * Loads a chat thread only when the current user is one of its participants.
+ *
+ * @param threadId ID of the thread to open.
+ */
 export async function openChatThread(threadId: number) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return null;
@@ -1946,6 +2397,12 @@ export async function openChatThread(threadId: number) {
   };
 }
 
+/**
+ * Opens or creates a chat thread for a listing and optional buyer.
+ *
+ * @param listingId ID of the listing associated with the chat.
+ * @param buyerId Optional buyer profile ID for seller-initiated chats.
+ */
 export async function openChat(listingId: number, buyerId?: string) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Please sign in again.");
@@ -1972,6 +2429,12 @@ export async function openChat(listingId: number, buyerId?: string) {
   return data as number;
 }
 
+/**
+ * Loads and maps all messages for a chat thread in chronological order.
+ *
+ * @param threadId ID of the chat thread to load.
+ * @param myRole Current user's role, used to map message sender labels.
+ */
 export async function loadChatMessages(threadId: number, myRole: Role) {
   const { data, error } = await supabase
     .from("chat_messages")
@@ -2008,6 +2471,15 @@ export async function loadChatMessages(threadId: number, myRole: Role) {
   });
 }
 
+/**
+ * Persists a text message or formal offer and returns its mapped row.
+ *
+ * @param threadId ID of the destination thread.
+ * @param body Message or offer text to save.
+ * @param kind Message kind; defaults to a regular message.
+ * @param myRole Current user's role; defaults to buyer.
+ * @param offerId Optional associated offer ID for formal offers.
+ */
 export async function sendChatMessage(
   threadId: number,
   body: string,
@@ -2054,6 +2526,12 @@ type NotificationChangeRow = {
   created_at: string;
 };
 
+/**
+ * Subscribes to notification and offer changes for one user.
+ *
+ * @param userId Profile ID whose notifications and deal changes to observe.
+ * @param handlers Callbacks for inserted/updated notifications and deal refreshes.
+ */
 export function subscribeMyNotifications(
   userId: string,
   handlers: {
@@ -2125,6 +2603,14 @@ type ChatChangeRow = {
   created_at: string;
 };
 
+/**
+ * Subscribes to new messages in a chat thread and returns a cleanup callback.
+ *
+ * @param threadId ID of the thread to observe.
+ * @param myRole Current user's role for mapping incoming senders.
+ * @param myId Current user's profile ID.
+ * @param onInsert Callback invoked with each valid new message.
+ */
 export function subscribeChatThread(
   threadId: number,
   myRole: Role,
@@ -2179,6 +2665,11 @@ async function blobFromCanvas(canvas: HTMLCanvasElement, type: string, quality: 
   });
 }
 
+/**
+ * Resizes and compresses a listing photo to WebP or JPEG.
+ *
+ * @param file Image file to resize and encode.
+ */
 export async function compressListingPhoto(file: File): Promise<{ blob: Blob; ext: "webp" | "jpg" }> {
   let bitmap: ImageBitmap;
   try {
@@ -2204,6 +2695,12 @@ export async function compressListingPhoto(file: File): Promise<{ blob: Blob; ex
   return { blob: jpeg, ext: "jpg" };
 }
 
+/**
+ * Compresses and uploads one listing photo, returning its public URL.
+ *
+ * @param file Image file to upload.
+ * @param userId Profile ID used to scope the uploaded object path.
+ */
 export async function uploadListingPhoto(file: File, userId: string) {
   const { blob, ext } = await compressListingPhoto(file);
   const path = `${userId}/${crypto.randomUUID()}.${ext}`;
@@ -2223,6 +2720,11 @@ export async function uploadListingPhoto(file: File, userId: string) {
   return data.publicUrl;
 }
 
+/**
+ * Uploads new listing photos while preserving existing public image URLs.
+ *
+ * @param items Photo files or existing public URLs to include in the listing.
+ */
 export async function uploadListingPhotos(items: { file?: File; url: string }[]) {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error("Not signed in.");
