@@ -9,6 +9,7 @@ let showTimer: ReturnType<typeof setTimeout> | undefined;
 let hideTimer: ReturnType<typeof setTimeout> | undefined;
 const listeners = new Set<(busy: boolean) => void>();
 
+/** Synchronizes the global busy indicator with subscribers and document state. */
 function emit(next: boolean) {
   if (visible === next) return;
   visible = next;
@@ -17,6 +18,7 @@ function emit(next: boolean) {
   listeners.forEach((listener) => listener(next));
 }
 
+/** Starts tracking one request and schedules the delayed busy indication. */
 function begin() {
   inflight += 1;
   if (hideTimer != null) {
@@ -30,6 +32,7 @@ function begin() {
   }, SHOW_AFTER_MS);
 }
 
+/** Finishes tracking one request and schedules the delayed busy reset. */
 function end() {
   inflight = Math.max(0, inflight - 1);
   if (inflight > 0) return;
@@ -44,12 +47,14 @@ function end() {
   }, HIDE_AFTER_MS);
 }
 
+/** Extracts a URL string from a Fetch API request input. */
 function requestUrl(input: RequestInfo | URL) {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.href;
   return input.url;
 }
 
+/** Excludes refresh-token and realtime requests from the busy indicator. */
 function shouldTrack(input: RequestInfo | URL) {
   const url = requestUrl(input);
   if (/grant_type=refresh_token/i.test(url)) return false;
@@ -57,6 +62,7 @@ function shouldTrack(input: RequestInfo | URL) {
   return true;
 }
 
+/** Wraps `fetch` with shared busy-state tracking for ordinary requests. */
 export async function trackedFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -70,6 +76,7 @@ export async function trackedFetch(
   }
 }
 
+/** Subscribes a component to the shared in-flight request indicator. */
 export function useAppBusy() {
   const [busy, setBusy] = useState(visible);
   useEffect(() => {

@@ -10,6 +10,7 @@ if (!url || !publishableKey) {
   );
 }
 
+/** Configured Supabase client with application-wide busy-aware fetch handling. */
 export const supabase = createClient(url, publishableKey, {
   global: { fetch: trackedFetch },
   auth: {

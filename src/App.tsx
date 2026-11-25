@@ -3,15 +3,22 @@ import * as api from "./lib/api";
 import { passwordRules } from "./lib/api";
 import { useAppBusy } from "./lib/busy";
 
-type Role = api.Role;
-type AuthView = "login" | "buyer-register" | "seller-register" | "admin-login";
-type MarketplaceUser = api.MarketplaceUser;
-type AdminProfile = api.AdminProfile;
-type Listing = api.Listing;
+/** Marketplace access role used to select navigation and permitted actions. */
+export type Role = api.Role;
+/** Authentication view currently shown in the sign-in portal. */
+export type AuthView = "login" | "buyer-register" | "seller-register" | "admin-login";
+/** Profile shape consumed by application screens. */
+export type MarketplaceUser = api.MarketplaceUser;
+/** Administrator profile used by the local admin sign-in flow. */
+export type AdminProfile = api.AdminProfile;
+/** Listing data shape shared by marketplace screens. */
+export type Listing = api.Listing;
 
-type ChatOfferStatus = api.ChatOfferStatus;
+/** Normalized status of a formal offer shown in chat. */
+export type ChatOfferStatus = api.ChatOfferStatus;
 
-type ChatMessage = {
+/** Message and offer content rendered in a listing conversation. */
+export type ChatMessage = {
   id: number;
   sender: "buyer" | "seller";
   body: string;
@@ -21,7 +28,8 @@ type ChatMessage = {
   offerStatus?: ChatOfferStatus;
 };
 
-type ListingOfferItem = {
+/** Compact offer details used to build seller-side offer summaries. */
+export type ListingOfferItem = {
   id: number | string;
   buyer: string;
   type: string;
@@ -31,9 +39,7 @@ type ListingOfferItem = {
 
 const CHAT_OFFER_DECLINED_MARKER = "__HKUST_OFFER_DECLINED__:";
 
-/**
- * returns the type of message ("ok", "wait", "bad") for a given message.
- */
+/** Maps status text to the visual tone used by marketplace badges. */
 export function statusTone(label: string): "ok" | "wait" | "bad" {
   const text = label.trim().toLowerCase();
   if (
@@ -62,7 +68,11 @@ export function statusTone(label: string): "ok" | "wait" | "bad" {
 }
 
 /**
- * calls setStart and setEnd respectively to set the default start and end times for the listing.
+ * Sets the borrow-period fields to a valid default for a listing.
+ *
+ * @param setStart Receives the suggested local start time.
+ * @param setEnd Receives the suggested local end time.
+ * @param listing Optional listing duration limit used to cap the period.
  */
 export function applyDefaultBorrowPeriod(
   setStart: (value: string) => void,
@@ -74,9 +84,7 @@ export function applyDefaultBorrowPeriod(
   setEnd(period.end);
 }
 
-/**
-* turns body into the 'canonical' terminology for offers and requests.
-*/
+/** Normalizes legacy offer wording to the terminology used by the UI. */
 export function unifyOfferCopy(body: string, listingType: Listing["type"]) {
   let text = body
     .replace(/^Proposed price:\s*/i, "Offer: ")
@@ -94,6 +102,7 @@ export function unifyOfferCopy(body: string, listingType: Listing["type"]) {
 /**
  * returns an array of offer messages in the chat of a given listing and buyer.
  */
+/** Extracts formal offer messages for the selected listing and participant. */
 export function chatOffersForListing(
   listing: Listing,
   messages: ChatMessage[],
@@ -116,6 +125,7 @@ export function chatOffersForListing(
     }));
 }
 
+/** Returns whether an offer message has been superseded or declined. */
 export function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   if (message.kind !== "offer") return false;
   if (message.offerStatus === "Declined") return true;
@@ -130,6 +140,7 @@ export function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]
   return group.at(-1)?.id !== message.id;
 }
 
+/** Identifies the first offer message in its offer thread. */
 export function isInitialOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   if (message.kind !== "offer") return false;
   const earlier = messages
@@ -143,6 +154,7 @@ export function isInitialOfferBubble(message: ChatMessage, messages: ChatMessage
   return earlier === 0;
 }
 
+/** Applies current deal/request statuses to matching chat offer messages. */
 export function syncChatOfferStatuses(
   current: Record<number, ChatMessage[]>,
   requests: api.SellerRequest[],
@@ -168,6 +180,7 @@ export function syncChatOfferStatuses(
   return changed ? next : current;
 }
 
+/** Keeps only the latest offer entry for each buyer, preserving buyer order. */
 export function latestOffersByBuyer(offers: ListingOfferItem[]) {
   const latest = new Map<string, ListingOfferItem>();
   for (const offer of offers) {
@@ -176,6 +189,7 @@ export function latestOffersByBuyer(offers: ListingOfferItem[]) {
   return [...latest.values()];
 }
 
+/** Combines offer records with chat participants, preferring primary records. */
 export function mergeListingOffers(primary: ListingOfferItem[], extra: ListingOfferItem[]) {
   return latestOffersByBuyer([...extra, ...primary]);
 }
@@ -186,6 +200,7 @@ const dealToneColors: Record<string, string> = {
   given: "#7fa491",
 };
 
+/** Builds the CSS conic-gradient for a seller's deal-type breakdown. */
 export function dealsDonutBackground(items: api.SellerStats["dealsByType"]) {
   const total = items.reduce((sum, item) => sum + item.count, 0);
   if (total === 0) return "#edf0f2";
@@ -202,6 +217,7 @@ export function dealsDonutBackground(items: api.SellerStats["dealsByType"]) {
   return `conic-gradient(${segments.join(", ")})`;
 }
 
+/** Adds chat participants who do not already have a formal offer entry. */
 export function withListingChatPeople(
   offers: ListingOfferItem[],
   people: { id: string; buyer: string; lastMessage: string }[],
@@ -334,6 +350,7 @@ const iconPaths: Record<string, React.ReactNode> = {
   arrow: <path d="m5 12 14 0m-5-5 5 5-5 5" />,
 };
 
+/** Renders a shared marketplace SVG icon at the requested size. */
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   return (
     <svg
@@ -352,6 +369,7 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   );
 }
 
+/** Derives one or two uppercase initials for an avatar. */
 export function avatarInitials(name: string) {
   const parts = name
     .trim()
@@ -363,6 +381,7 @@ export function avatarInitials(name: string) {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
+/** Displays a rounded five-star rating with an accessible text label. */
 export function StarMeter({
   value,
   size = 14,
@@ -394,6 +413,7 @@ export function StarMeter({
   );
 }
 
+/** Renders the marketplace wordmark and its shared busy indicator. */
 export function Logo() {
   const busy = useAppBusy();
   return (
@@ -409,10 +429,12 @@ export function Logo() {
   );
 }
 
+/** Checks that a listing photo URL can be rendered as an image. */
 export function isUsableListingPhoto(src?: string): src is string {
   return typeof src === "string" && src.length > 0 && !src.startsWith("data:image/svg");
 }
 
+/** Displays a listing image or an accessible placeholder when it is unavailable. */
 export function ListingPhoto({
   src,
   alt,
@@ -452,6 +474,7 @@ export function ListingPhoto({
   );
 }
 
+/** Renders a browse-card summary and forwards selection to the caller. */
 export function ListingCard({ listing, onOpen }: { listing: Listing; onOpen: () => void }) {
   return (
     <article className="listing-card" onClick={onOpen}>
@@ -492,6 +515,7 @@ export function ListingCard({ listing, onOpen }: { listing: Listing; onOpen: () 
   );
 }
 
+/** Provides searchable, filterable, and sortable access to live listings. */
 export function Browse({
   listings,
   onOpen,
@@ -644,6 +668,7 @@ export function Browse({
   );
 }
 
+/** Presents listing details and role-specific actions in a modal. */
 export function DetailModal({
   listing,
   role,
@@ -1332,6 +1357,7 @@ export function DetailModal({
   );
 }
 
+/** Shows a seller's public profile, rating, and related marketplace context. */
 export function SellerProfileModal({
   seller,
   fullName,
@@ -1503,6 +1529,7 @@ export function SellerProfileModal({
   );
 }
 
+/** Renders a listing conversation with messaging and offer controls. */
 export function ChatScreen({
   listing,
   role,
@@ -2384,7 +2411,8 @@ const pageData: Record<string, { title: string; subtitle: string }> = {
   },
 };
 
-type BuyerDeal = {
+/** Buyer-facing summary of an offer, borrow, or giveaway claim. */
+export type BuyerDeal = {
   id: number;
   listing: Listing;
   kind: "Offer" | "Borrow" | "Claim";
@@ -2395,6 +2423,7 @@ type BuyerDeal = {
   completed?: boolean;
 };
 
+/** Collects a star rating and optional written review after a completed deal. */
 export function RatingDialog({
   deal,
   onClose,
@@ -2468,6 +2497,7 @@ export function RatingDialog({
   );
 }
 
+/** Lists completed deals that the buyer can rate. */
 export function RateSellersPage({
   deals,
   ratedDealIds,
@@ -2573,6 +2603,7 @@ export function RateSellersPage({
   );
 }
 
+/** Displays a buyer's active deals and their available actions. */
 export function MyDealsPage({
   deals,
   ratedDealIds,
@@ -3160,6 +3191,7 @@ export function MyDealsPage({
   );
 }
 
+/** Shows completed and historical deal records for the current user. */
 export function DealHistoryPage({
   deals,
   onOpenListing,
@@ -3330,7 +3362,8 @@ export function DealHistoryPage({
   );
 }
 
-type SellerRequest = {
+/** Seller-facing view of a buyer's offer, borrowing request, or claim. */
+export type SellerRequest = {
   id: number;
   dealId: number;
   listing: Listing;
@@ -3343,6 +3376,7 @@ type SellerRequest = {
   listingStatus: "Available" | "Reserved" | "Sold" | "Lent" | "Given";
 };
 
+/** Lets sellers review and respond to incoming listing requests. */
 export function SellerRequestsPage({
   requests,
   onRequestsChange,
@@ -3742,15 +3776,18 @@ export function SellerRequestsPage({
   );
 }
 
-type ListingFormType = "" | "Sell" | "Lend" | "Give Away";
+/** Listing type selection, including the form's unselected state. */
+export type ListingFormType = "" | "Sell" | "Lend" | "Give Away";
 
-type PhotoPreview = {
+/** A photo preview and optional upload file used by listing forms. */
+export type PhotoPreview = {
   id: string;
   name: string;
   url: string;
   file?: File;
 };
 
+/** Creates a marketplace listing and uploads any selected photos. */
 export function CreateListingForm({
   onAction,
   onRefresh,
@@ -4107,7 +4144,8 @@ export function CreateListingForm({
   );
 }
 
-type NotificationItem = {
+/** UI-ready notification data used by the notification helpers and board. */
+export type NotificationItem = {
   id: number;
   category: string;
   title: string;
@@ -4121,6 +4159,7 @@ type NotificationItem = {
   threadId?: number;
 };
 
+/** Finds a referenced listing from the text of a notification. */
 export function listingFromNotification(message: string, listings: Listing[]) {
   const quoted = [...message.matchAll(/[“"]([^”"]+)[”"]/g)].map((match) => match[1].trim());
   for (const title of quoted) {
@@ -4130,6 +4169,7 @@ export function listingFromNotification(message: string, listings: Listing[]) {
   return listings.find((listing) => message.includes(listing.title));
 }
 
+/** Extracts a participant username from a notification using known accounts. */
 export function usernameFromNotification(item: NotificationItem, knownUsernames: string[] = []) {
   const fromTitle = item.title.match(/@(.+)$/)?.[1]?.trim();
   const names = [...new Set(knownUsernames.filter(Boolean))].sort((a, b) => b.length - a.length);
@@ -4145,6 +4185,7 @@ export function usernameFromNotification(item: NotificationItem, knownUsernames:
     ?? text.match(/@([A-Za-z0-9._-]+(?:\s+[A-Za-z0-9._-]+)*)/)?.[1]?.trim();
 }
 
+/** Resolves a notification to the listing and participant for its chat. */
 export function chatTargetFromNotification(
   item: NotificationItem,
   role: Role,
@@ -4205,6 +4246,7 @@ export function chatTargetFromNotification(
   return null;
 }
 
+/** Maps a notification action to the role-appropriate destination page. */
 export function pageForNotificationAction(action: string, role: Role) {
   if (action === "Review listing") return role === "Admin" ? "Listing Review" : "My Listings";
   if (action === "View listing") {
@@ -4223,6 +4265,7 @@ export function pageForNotificationAction(action: string, role: Role) {
   return null;
 }
 
+/** Displays notifications with read-state, filters, and action routing. */
 export function NotificationBoard({
   role,
   items,
@@ -4433,7 +4476,8 @@ export function NotificationBoard({
   );
 }
 
-type ReviewListing = {
+/** Listing submission data shown in the administrator review queue. */
+export type ReviewListing = {
   id: number;
   listing: Listing;
   sellerFullName: string;
@@ -4442,6 +4486,7 @@ type ReviewListing = {
   rejectionReason?: string;
 };
 
+/** Allows administrators to approve or reject listings and resolve reports. */
 export function ListingReviewPage({
   records,
   reports,
@@ -4856,6 +4901,7 @@ export function ListingReviewPage({
   );
 }
 
+/** Provides administrator search and account-management actions. */
 export function ManageUsersPage({
   users,
   onUsersChange,
@@ -5187,9 +5233,11 @@ export function ManageUsersPage({
   );
 }
 
-type SellerListingStatus = "Pending" | "Live" | "Rejected" | "Reserved" | "Sold" | "Lent" | "Given";
+/** Seller-facing lifecycle state for a listing. */
+export type SellerListingStatus = "Pending" | "Live" | "Rejected" | "Reserved" | "Sold" | "Lent" | "Given";
 
-type SellerListingRecord = {
+/** A seller listing together with its moderation and offer activity. */
+export type SellerListingRecord = {
   id: number;
   listing: Listing;
   status: SellerListingStatus;
@@ -5198,6 +5246,7 @@ type SellerListingRecord = {
   rejectionReason?: string;
 };
 
+/** Lets sellers filter, edit, and remove their listings. */
 export function SellerListingsPage({
   records,
   onRecordsChange,
@@ -5681,7 +5730,8 @@ export function SellerListingsPage({
   );
 }
 
-type SellerReview = {
+/** Review content and moderation state shown to a seller or administrator. */
+export type SellerReview = {
   id: number;
   rating: number;
   text: string;
@@ -5697,6 +5747,7 @@ type SellerReview = {
   hidden?: boolean;
 };
 
+/** Lets sellers reply to buyer reviews and report inappropriate feedback. */
 export function SellerReviewsPage({
   reviews,
   onReviewsChange,
@@ -6068,7 +6119,8 @@ export function SellerReviewsPage({
   );
 }
 
-type SystemListing = {
+/** Marketplace listing with administrator-wide status and submission metadata. */
+export type SystemListing = {
   id: number;
   listing: Listing;
   sellerFullName: string;
@@ -6084,6 +6136,7 @@ type SystemListing = {
   submitted: string;
 };
 
+/** Provides administrator search, filters, and moderation for all listings. */
 export function AllListingsPage({
   records,
   onRecordsChange,
@@ -6362,7 +6415,8 @@ export function AllListingsPage({
   );
 }
 
-type SystemDeal = {
+/** System-wide summary of a completed or active marketplace deal. */
+export type SystemDeal = {
   id: number;
   title: string;
   buyer: string;
@@ -6372,6 +6426,7 @@ type SystemDeal = {
   end: string;
   status: string;
 };
+/** Shows and filters system-wide deal history for administrators. */
 export function AllDealsPage({ deals }: { deals: SystemDeal[] }) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("All types");
@@ -6489,7 +6544,8 @@ export function AllDealsPage({ deals }: { deals: SystemDeal[] }) {
   );
 }
 
-type SellerRating = {
+/** Aggregate rating statistics for one seller. */
+export type SellerRating = {
   seller: string;
   name: string;
   average: number;
@@ -6499,6 +6555,7 @@ type SellerRating = {
   latestAt: string;
   listings: number;
 };
+/** Summarizes seller ratings and provides date-filtered review details. */
 export function RatingsOverviewPage({
   ratings,
   reviews,
@@ -6716,6 +6773,7 @@ export function RatingsOverviewPage({
   );
 }
 
+/** Edits the current user's marketplace profile and account settings. */
 export function ProfilePage({
   role,
   currentUsername,
@@ -6950,6 +7008,7 @@ export function ProfilePage({
   );
 }
 
+/** Displays secondary marketplace information and support resources. */
 export function SupportingPage({
   page,
   role,
@@ -7341,6 +7400,7 @@ export function SupportingPage({
   );
 }
 
+/** Handles buyer, seller, and administrator authentication flows. */
 export function AuthPortal({
   view,
   users,
@@ -7738,6 +7798,7 @@ export function AuthPortal({
   );
 }
 
+/** Mount-level marketplace application, including session and navigation state. */
 export default function App() {
   const [authView, setAuthView] = useState<AuthView>("login");
   const [users, setUsers] = useState<MarketplaceUser[]>([]);

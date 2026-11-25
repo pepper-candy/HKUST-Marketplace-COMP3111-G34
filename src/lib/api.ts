@@ -1,7 +1,9 @@
 import { supabase } from "./supabase";
 
+/** Marketplace role that controls available pages and actions. */
 export type Role = "Buyer" | "Seller" | "Admin";
 
+/** Public profile fields shared by buyer and seller accounts. */
 export type MarketplaceUser = {
   id?: string;
   username: string;
@@ -13,12 +15,14 @@ export type MarketplaceUser = {
   status?: "Active" | "Deactivated";
 };
 
+/** Local administrator identity and display information. */
 export type AdminProfile = {
   username: string;
   password: string;
   fullName: string;
 };
 
+/** Marketplace listing data used throughout the application. */
 export type Listing = {
   id: number;
   title: string;
@@ -41,8 +45,10 @@ export type Listing = {
   sellerReviewCount?: number;
 };
 
+/** Normalized status of an offer displayed in a chat thread. */
 export type ChatOfferStatus = "Pending" | "Accepted" | "Declined" | "Countered";
 
+/** Chat message or formal offer after mapping from the database. */
 export type ChatMessage = {
   id: number;
   sender: "buyer" | "seller";
@@ -53,6 +59,7 @@ export type ChatMessage = {
   offerStatus?: ChatOfferStatus;
 };
 
+/** Chat thread summary for the current user's inbox. */
 export type MyChatThread = {
   id: number;
   listing: Listing;
@@ -61,6 +68,7 @@ export type MyChatThread = {
   updated: string;
 };
 
+/** Buyer-facing summary of a listing offer, borrow, or claim. */
 export type BuyerDeal = {
   id: number;
   listing: Listing;
@@ -73,6 +81,7 @@ export type BuyerDeal = {
   completed?: boolean;
 };
 
+/** Seller-facing view of a buyer request and its current listing state. */
 export type SellerRequest = {
   id: number;
   dealId: number;
@@ -86,6 +95,7 @@ export type SellerRequest = {
   listingStatus: "Available" | "Reserved" | "Sold" | "Lent" | "Given";
 };
 
+/** Application-ready notification content and its optional action targets. */
 export type NotificationItem = {
   id: number;
   category: string;
@@ -100,6 +110,7 @@ export type NotificationItem = {
   threadId?: number;
 };
 
+/** Listing review record shown in the administrator queue. */
 export type ReviewListing = {
   id: number;
   listing: Listing;
@@ -109,6 +120,7 @@ export type ReviewListing = {
   rejectionReason?: string;
 };
 
+/** User-submitted report and its moderation resolution, if closed. */
 export type ListingReport = {
   id: number;
   listing: Listing;
@@ -119,6 +131,7 @@ export type ListingReport = {
   closedAs?: "reviewed" | "dismissed";
 };
 
+/** Lifecycle states shown in the seller's listing manager. */
 export type SellerListingStatus =
   | "Pending"
   | "Live"
@@ -128,6 +141,7 @@ export type SellerListingStatus =
   | "Lent"
   | "Given";
 
+/** Seller listing with its activity count and moderation metadata. */
 export type SellerListingRecord = {
   id: number;
   listing: Listing;
@@ -137,6 +151,7 @@ export type SellerListingRecord = {
   rejectionReason?: string;
 };
 
+/** Buyer review with seller response and moderation fields. */
 export type SellerReview = {
   id: number;
   rating: number;
@@ -153,6 +168,7 @@ export type SellerReview = {
   hidden?: boolean;
 };
 
+/** Administrator-wide listing record with moderation status. */
 export type SystemListing = {
   id: number;
   listing: Listing;
@@ -169,6 +185,7 @@ export type SystemListing = {
   submitted: string;
 };
 
+/** Administrator-wide summary of a marketplace deal. */
 export type SystemDeal = {
   id: number;
   title: string;
@@ -180,6 +197,7 @@ export type SystemDeal = {
   status: string;
 };
 
+/** Aggregate public rating statistics for one seller. */
 export type SellerRating = {
   seller: string;
   name: string;
@@ -191,6 +209,7 @@ export type SellerRating = {
   listings: number;
 };
 
+/** Completed transaction shown in a user's history. */
 export type HistoryDeal = {
   id: number;
   listing: Listing;
@@ -199,6 +218,7 @@ export type HistoryDeal = {
   outcome: string;
 };
 
+/** Aggregated seller activity and chart data for the dashboard. */
 export type SellerStats = {
   views: number;
   offers: number;
@@ -208,6 +228,7 @@ export type SellerStats = {
   dealsByType: { label: string; count: number; tone: string }[];
 };
 
+/** Complete marketplace state assembled for the authenticated session. */
 export type MarketplaceSnapshot = {
   currentUserId: string;
   currentUsername: string;
@@ -313,6 +334,7 @@ const PLACEHOLDER_IMAGE =
     '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect fill="#e8eef6" width="100%" height="100%"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7a8aa0" font-size="28">No photo</text></svg>',
   );
 
+/** Categories accepted by listing creation and editing forms. */
 export const LISTING_CATEGORIES = [
   "Electronics",
   "Books & Course Materials",
@@ -322,6 +344,7 @@ export const LISTING_CATEGORIES = [
   "Other",
 ] as const;
 
+/** Password-strength checks displayed by account forms. */
 export const passwordRules = [
   { label: "At least 8 characters", test: (value: string) => value.length >= 8 },
   { label: "One uppercase letter", test: (value: string) => /[A-Z]/.test(value) },
@@ -329,6 +352,7 @@ export const passwordRules = [
   { label: "One number", test: (value: string) => /\d/.test(value) },
 ];
 
+/** Converts a marketplace username into the email identifier used by Supabase Auth. */
 export function authEmailFromUsername(username: string) {
   const normalized = username.trim().toLowerCase();
   if (normalized.includes("@")) return normalized;
@@ -450,6 +474,7 @@ function hongKongDateTimeToIso(value: string) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+/** Formats a date as a local datetime string in the Asia/Hong_Kong time zone. */
 export function hongKongDateTimeLocalValue(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: HK_TIME_ZONE,
@@ -499,6 +524,7 @@ function snapHongKongToTenMinutes(date: Date) {
   return `${year}-${padHongKongPart(month)}-${padHongKongPart(day)}T${padHongKongPart(hour)}:${padHongKongPart(minute)}:00`;
 }
 
+/** Converts a supported lending duration to milliseconds, or returns `null` if invalid. */
 export function lendingDurationMs(value?: number | null, unit?: string | null) {
   if (value == null || value <= 0 || !unit) return null;
   const normalized = unit.toLowerCase();
@@ -508,17 +534,20 @@ export function lendingDurationMs(value?: number | null, unit?: string | null) {
   return null;
 }
 
+/** Formats a lending duration for display, using a singular unit when appropriate. */
 export function formatLendingDuration(value?: number | null, unit?: string | null) {
   if (value == null || !unit) return "";
   const label = value === 1 ? unit.replace(/s$/i, "") : unit;
   return `${value} ${label}`;
 }
 
+/** Returns the listing's maximum borrow period in milliseconds, if one is set. */
 export function listingMaxBorrowMs(listing?: Pick<Listing, "duration" | "durationUnit"> | null) {
   if (!listing) return null;
   return lendingDurationMs(listing.duration, listing.durationUnit);
 }
 
+/** Creates a default Hong Kong borrow period, capped by the listing duration. */
 export function defaultBorrowPeriod(
   now = new Date(),
   listing?: Pick<Listing, "duration" | "durationUnit"> | null,
@@ -532,6 +561,7 @@ export function defaultBorrowPeriod(
   return { start, end };
 }
 
+/** Validates a borrow interval and returns a user-facing error, or `null` when valid. */
 export function borrowPeriodError(
   start: string,
   end: string,
@@ -595,6 +625,7 @@ function formatDateTime(iso: string) {
   }).format(new Date(iso));
 }
 
+/** Formats an offer, borrow request, or giveaway claim for display. */
 export function offerDetailLabel(input: {
   type: Listing["type"] | "Sell" | "Lend" | "Give Away";
   price?: number;
@@ -610,6 +641,7 @@ export function offerDetailLabel(input: {
   return `Offer: HK$${Number(input.price).toLocaleString()}`;
 }
 
+/** Normalizes database offer statuses to the status vocabulary used in chat. */
 export function chatOfferStatusUi(status: string | undefined | null): ChatOfferStatus | undefined {
   if (!status) return undefined;
   const value = status.toLowerCase();
@@ -665,6 +697,7 @@ function notificationTone(value: string | null | undefined): NotificationItem["t
   return "navy";
 }
 
+/** Converts a database notification row into its application-facing shape. */
 export function notificationFromRow(row: {
   id: number;
   category: string;
@@ -692,6 +725,7 @@ export function notificationFromRow(row: {
   };
 }
 
+/** Converts a database chat row into a message, assigning sender and offer state. */
 export function chatMessageFromRow(
   row: {
     id: number;
@@ -720,6 +754,7 @@ export function chatMessageFromRow(
   };
 }
 
+/** Inserts a realtime message or replaces its matching optimistic local message. */
 export function mergeRealtimeChatMessage(list: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
   if (list.some((item) => item.id === incoming.id)) return list;
   const temp = [...list]
@@ -824,6 +859,7 @@ function buyerDealStatus(offer: OfferRow, listing: ListingRow) {
   return "Pending";
 }
 
+/** Creates a buyer or seller Auth account and its profile metadata. */
 export async function registerAccount(input: {
   username: string;
   fullName: string;
@@ -871,6 +907,7 @@ export async function registerAccount(input: {
   await supabase.auth.signOut();
 }
 
+/** Resolves a username, authenticates it, and verifies its active role. */
 export async function loginAccount(input: {
   username: string;
   password: string;
@@ -935,10 +972,12 @@ export async function loginAccount(input: {
   return { role, username: profile.username as string };
 }
 
+/** Signs out the current Supabase Auth session. */
 export async function logoutAccount() {
   await supabase.auth.signOut();
 }
 
+/** Restores an active authenticated profile, signing out invalid sessions. */
 export async function restoreSession() {
   const { data } = await supabase.auth.getSession();
   if (!data.session) return null;
@@ -955,6 +994,7 @@ export async function restoreSession() {
   return { role: roleUi(profile.role), username: profile.username as string };
 }
 
+/** Loads and maps the marketplace data required by the current session. */
 export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
@@ -1345,6 +1385,7 @@ export async function loadSnapshot(): Promise<MarketplaceSnapshot> {
   };
 }
 
+/** Updates the signed-in profile and optionally changes its password. */
 export async function updateOwnProfile(input: {
   fullName: string;
   bio?: string;
@@ -1368,6 +1409,7 @@ export async function updateOwnProfile(input: {
   }
 }
 
+/** Creates a listing for the signed-in seller or an administrator-selected seller. */
 export async function createListing(input: {
   type: Listing["type"];
   title: string;
@@ -1402,6 +1444,7 @@ export async function createListing(input: {
   throwIf(error);
 }
 
+/** Updates editable listing fields and notifies buyers with active offers. */
 export async function updateListingDetails(
   listingId: number,
   patch: {
@@ -1442,6 +1485,7 @@ export async function updateListingDetails(
 
 const recentListingViews = new Map<number, number>();
 
+/** Increments a listing's view count, suppressing duplicate requests briefly. */
 export async function incrementViews(listingId: number) {
   const now = Date.now();
   const last = recentListingViews.get(listingId) ?? 0;
@@ -1457,6 +1501,7 @@ export async function incrementViews(listingId: number) {
   return data as number;
 }
 
+/** Creates a price offer, borrowing request, or giveaway claim for a listing. */
 export async function submitListingAction(
   listing: Listing,
   input: { price?: number; start?: string; end?: string },
@@ -1477,6 +1522,7 @@ export async function submitListingAction(
   return data as number;
 }
 
+/** Best-effort sync of a saved buyer offer into its chat thread. */
 export async function postOfferChatIfBuyerThread(
   listingId: number,
   body: string,
@@ -1490,6 +1536,7 @@ export async function postOfferChatIfBuyerThread(
   }
 }
 
+/** Accepts, declines, or counters a seller request. */
 export async function respondToOffer(
   offerId: number,
   action: "accept" | "decline" | "counter",
@@ -1505,6 +1552,7 @@ export async function respondToOffer(
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Sends a seller counter-offer, falling back to the generic counter RPC if needed. */
 export async function sellerMakeOffer(
   offerId: number,
   offer: { price?: number; start?: string; end?: string },
@@ -1525,11 +1573,13 @@ export async function sellerMakeOffer(
   await respondToOffer(offerId, "counter", offer);
 }
 
+/** Accepts the buyer's current counter-offer. */
 export async function acceptCounterOffer(offerId: number) {
   const { error } = await supabase.rpc("accept_counter_offer", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Accepts the current price of a listing and returns the created deal ID. */
 export async function acceptListingPrice(listing: Listing) {
   const { data, error } = await supabase.rpc("accept_listing_price", {
     p_listing_id: listing.id,
@@ -1538,16 +1588,19 @@ export async function acceptListingPrice(listing: Listing) {
   return data as number;
 }
 
+/** Declines the seller's current counter-offer. */
 export async function declineCounterOffer(offerId: number) {
   const { error } = await supabase.rpc("decline_counter_offer", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Declines a pending or countered offer as the buyer. */
 export async function buyerDeclineOffer(offerId: number) {
   const { error } = await supabase.rpc("buyer_decline_offer", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Sends a buyer counter-offer with an optional price or borrowing interval. */
 export async function buyerCounterOffer(
   offerId: number,
   counter: { price?: number; start?: string; end?: string },
@@ -1583,11 +1636,13 @@ export async function buyerCounterOffer(
   if (fallbackError) throw new Error(rpcMessage(fallbackError));
 }
 
+/** Marks an accepted borrowing deal as returned. */
 export async function returnBorrow(offerId: number) {
   const { error } = await supabase.rpc("return_borrow", { p_offer_id: offerId });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Completes a deal and optionally records the buyer's rating and review. */
 export async function completeDeal(offerId: number, stars?: number, review?: string) {
   const { error } = await supabase.rpc("complete_deal", {
     p_offer_id: offerId,
@@ -1597,6 +1652,7 @@ export async function completeDeal(offerId: number, stars?: number, review?: str
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Approves, rejects, or removes a listing through the moderation RPC. */
 export async function moderateListing(
   listingId: number,
   action: "approve" | "reject" | "remove",
@@ -1610,6 +1666,7 @@ export async function moderateListing(
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Removes one of the signed-in seller's listings. */
 export async function sellerRemoveListing(listingId: number) {
   const { error } = await supabase.rpc("seller_remove_listing", {
     p_listing_id: listingId,
@@ -1618,6 +1675,7 @@ export async function sellerRemoveListing(listingId: number) {
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Updates an account's administrator-editable profile fields. */
 export async function adminUpdateUser(
   userId: string,
   patch: { fullName: string; residence?: string },
@@ -1629,16 +1687,19 @@ export async function adminUpdateUser(
   throwIf(error);
 }
 
+/** Activates or deactivates an account through the administrator RPC. */
 export async function adminSetUserStatus(userId: string, status: "active" | "deactivated") {
   const { error } = await supabase.rpc("set_user_status", { p_user_id: userId, p_status: status });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Soft-deletes a user account while preserving marketplace records. */
 export async function adminDeleteUser(userId: string) {
   const { error } = await supabase.rpc("soft_delete_user", { p_user_id: userId });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Submits a safety report for a listing. */
 export async function reportListing(listingId: number, reason?: string) {
   const { error } = await supabase.rpc("report_listing", {
     p_listing_id: listingId,
@@ -1647,6 +1708,7 @@ export async function reportListing(listingId: number, reason?: string) {
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Closes a listing report as reviewed or dismissed. */
 export async function resolveListingReport(
   reportId: number,
   resolution: "reviewed" | "dismissed",
@@ -1658,11 +1720,13 @@ export async function resolveListingReport(
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Hides or restores a seller rating using the moderation RPC. */
 export async function hideRating(ratingId: number, hidden = true) {
   const { error } = await supabase.rpc("hide_rating", { p_rating_id: ratingId, p_hidden: hidden });
   if (error) throw new Error(rpcMessage(error));
 }
 
+/** Saves a seller's reply to a buyer rating. */
 export async function replyToReview(ratingId: number, reply: string) {
   const { error } = await supabase
     .from("ratings")
@@ -1671,6 +1735,7 @@ export async function replyToReview(ratingId: number, reply: string) {
   throwIf(error);
 }
 
+/** Flags a rating for administrator moderation with the supplied reason. */
 export async function flagReview(ratingId: number, reason: string) {
   const { error } = await supabase
     .from("ratings")
@@ -1679,6 +1744,7 @@ export async function flagReview(ratingId: number, reason: string) {
   throwIf(error);
 }
 
+/** Marks the specified notifications as read for the current account. */
 export async function markNotificationsRead(ids: number[]) {
   const { error } = await supabase.rpc("mark_notifications_read", { p_ids: ids });
   if (error) throw new Error(rpcMessage(error));
@@ -1715,6 +1781,7 @@ function isMissingRpc(error: { code?: string; message: string }) {
   );
 }
 
+/** Hides a chat thread for the current user and remembers the local dismissal. */
 export async function deleteChatThread(threadId: number) {
   hideDeletedChatThreadLocally(threadId);
 
@@ -1725,6 +1792,7 @@ export async function deleteChatThread(threadId: number) {
   throw new Error(rpcMessage(error));
 }
 
+/** Lists visible chat threads for the authenticated account. */
 export async function listMyChatThreads(): Promise<MyChatThread[]> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return [];
@@ -1812,6 +1880,7 @@ export async function listMyChatThreads(): Promise<MyChatThread[]> {
     .map(({ sortKey: _sortKey, ...thread }) => thread);
 }
 
+/** Lists chat participants and their latest message for one listing. */
 export async function listListingChatPeople(listingId: number) {
   const { data: threads, error } = await supabase
     .from("chat_threads")
@@ -1851,6 +1920,7 @@ export async function listListingChatPeople(listingId: number) {
   }));
 }
 
+/** Finds a chat with a username, optionally restricted to a listing. */
 export async function findChatWithUsername(username: string, listingId?: number) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user || !username) return null;
@@ -1908,11 +1978,13 @@ export async function findChatWithUsername(username: string, listingId?: number)
   };
 }
 
+/** Looks up the profile ID associated with an exact username. */
 export async function profileIdByUsername(username: string) {
   const { data } = await supabase.from("profiles").select("id").eq("username", username).maybeSingle();
   return (data?.id as string | undefined) ?? null;
 }
 
+/** Loads a chat thread only when the current user is one of its participants. */
 export async function openChatThread(threadId: number) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return null;
@@ -1946,6 +2018,7 @@ export async function openChatThread(threadId: number) {
   };
 }
 
+/** Opens or creates a chat thread for a listing and optional buyer. */
 export async function openChat(listingId: number, buyerId?: string) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Please sign in again.");
@@ -1972,6 +2045,7 @@ export async function openChat(listingId: number, buyerId?: string) {
   return data as number;
 }
 
+/** Loads and maps all messages for a chat thread in chronological order. */
 export async function loadChatMessages(threadId: number, myRole: Role) {
   const { data, error } = await supabase
     .from("chat_messages")
@@ -2008,6 +2082,7 @@ export async function loadChatMessages(threadId: number, myRole: Role) {
   });
 }
 
+/** Persists a text message or formal offer and returns its mapped row. */
 export async function sendChatMessage(
   threadId: number,
   body: string,
@@ -2054,6 +2129,7 @@ type NotificationChangeRow = {
   created_at: string;
 };
 
+/** Subscribes to notification and offer changes for one user. */
 export function subscribeMyNotifications(
   userId: string,
   handlers: {
@@ -2125,6 +2201,7 @@ type ChatChangeRow = {
   created_at: string;
 };
 
+/** Subscribes to new messages in a chat thread and returns a cleanup callback. */
 export function subscribeChatThread(
   threadId: number,
   myRole: Role,
@@ -2179,6 +2256,7 @@ async function blobFromCanvas(canvas: HTMLCanvasElement, type: string, quality: 
   });
 }
 
+/** Resizes and compresses a listing photo to WebP or JPEG. */
 export async function compressListingPhoto(file: File): Promise<{ blob: Blob; ext: "webp" | "jpg" }> {
   let bitmap: ImageBitmap;
   try {
@@ -2204,6 +2282,7 @@ export async function compressListingPhoto(file: File): Promise<{ blob: Blob; ex
   return { blob: jpeg, ext: "jpg" };
 }
 
+/** Compresses and uploads one listing photo, returning its public URL. */
 export async function uploadListingPhoto(file: File, userId: string) {
   const { blob, ext } = await compressListingPhoto(file);
   const path = `${userId}/${crypto.randomUUID()}.${ext}`;
@@ -2223,6 +2302,7 @@ export async function uploadListingPhoto(file: File, userId: string) {
   return data.publicUrl;
 }
 
+/** Uploads new listing photos while preserving existing public image URLs. */
 export async function uploadListingPhotos(items: { file?: File; url: string }[]) {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error("Not signed in.");
