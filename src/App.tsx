@@ -1388,7 +1388,37 @@ export function DetailModal({
                   <Icon name="arrow" size={18} />
                 </button>
                 {role === "Buyer" && listing.type === "Sell" && (
-                  <button type="button" className="secondary-action" disabled>
+                  <button
+                    type="button"
+                    className="secondary-action"
+                    disabled={submitting || listing.price == null}
+                    onClick={() => {
+                      if (listing.price == null) {
+                        setFormError("This listing has no listed price.");
+                        return;
+                      }
+                      setFormError("");
+                      setSubmitting(true);
+                      void api
+                        .submitListingAction(listing, { price: listing.price })
+                        .then((offerId) => {
+                          const detail = api.offerDetailLabel({
+                            type: "Sell",
+                            price: listing.price as number,
+                          });
+                          if (typeof offerId === "number") {
+                            void api.postOfferChatIfBuyerThread(listing.id, detail, offerId);
+                          }
+                          onAction(`${detail} sent to @${listing.seller}`);
+                        })
+                        .catch((err) => {
+                          setSubmitting(false);
+                          setFormError(
+                            err instanceof Error ? err.message : "Could not submit.",
+                          );
+                        });
+                    }}
+                  >
                     Buy now
                   </button>
                 )}
