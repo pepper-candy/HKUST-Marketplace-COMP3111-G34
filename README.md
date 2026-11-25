@@ -2,7 +2,19 @@
 
 COMP3111 F2026 Group 34
 
-['Documentation'](https://pepper-candy.github.io/HKUST-Marketplace-COMP3111-G34/).
+[Documentation root](https://pepper-candy.github.io/HKUST-Marketplace-COMP3111-G34/).
+
+
+[Example screenshots](https://pepper-candy.github.io/HKUST-Marketplace-COMP3111-G34/screenshots/index.html).
+
+[Unit tests](https://pepper-candy.github.io/HKUST-Marketplace-COMP3111-G34/test_report/index.html#/).
+
+[Coverage tests](https://pepper-candy.github.io/HKUST-Marketplace-COMP3111-G34/coverage/index.html).
+
+[Documentation](https://pepper-candy.github.io/HKUST-Marketplace-COMP3111-G34/typedoc/index.html).
+
+[Supplementary notes](https://pepper-candy.github.io/HKUST-Marketplace-COMP3111-G34/supplementary.html).
+
 
 ---
 
