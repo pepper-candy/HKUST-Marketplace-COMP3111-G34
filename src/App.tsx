@@ -6259,10 +6259,12 @@ export function SellerReviewsPage({
                 )}
 
                 <div className="review-card-actions">
-                  <button className="secondary-action" onClick={() => openReply(review)}>
-                    <Icon name="message" size={15} />
-                    {review.reply ? "Edit reply" : "Reply"}
-                  </button>
+                  {!review.reply && (
+                    <button className="secondary-action" onClick={() => openReply(review)}>
+                      <Icon name="message" size={15} />
+                      Reply
+                    </button>
+                  )}
                   <button
                     className="flag-review-button"
                     disabled={review.flagged}

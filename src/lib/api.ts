@@ -2083,7 +2083,8 @@ export async function replyToReview(ratingId: number, reply: string) {
   const { error } = await supabase
     .from("ratings")
     .update({ seller_reply: reply.trim() })
-    .eq("id", ratingId);
+    .eq("id", ratingId)
+    .is("seller_reply", null);
   throwIf(error);
 }
 
