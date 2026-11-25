@@ -3589,10 +3589,20 @@ export function SellerRequestsPage({
     (request) =>
       request.listingStatus === "Available" || request.listingStatus === "Reserved",
   );
+  const sellerCanAct = (request: SellerRequest) =>
+    request.type !== "Claim" &&
+    request.lastActionBy !== "seller" &&
+    (request.status === "Pending" || request.status === "Countered");
+  const waitingOnBuyer = (request: SellerRequest) =>
+    request.status === "Countered" && request.lastActionBy === "seller";
   const visibleRequests =
     filter === "All"
       ? availableRequests
-      : availableRequests.filter((request) => request.status === filter);
+      : filter === "Pending"
+        ? availableRequests.filter(sellerCanAct)
+        : filter === "Countered"
+          ? availableRequests.filter(waitingOnBuyer)
+          : availableRequests.filter((request) => request.status === filter);
 
   const updateBuyerDeal = (
     request: SellerRequest,
@@ -3707,12 +3717,7 @@ export function SellerRequestsPage({
       .finally(() => setBusy(false));
   };
 
-  const pendingCount = availableRequests.filter(
-    (request) =>
-      request.type !== "Claim" &&
-      request.status === "Pending" &&
-      request.lastActionBy !== "seller",
-  ).length;
+  const pendingCount = availableRequests.filter(sellerCanAct).length;
 
   return (
     <section>
