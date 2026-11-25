@@ -19,21 +19,33 @@ export type ChatOfferStatus = api.ChatOfferStatus;
 
 /** Message and offer content rendered in a listing conversation. */
 export type ChatMessage = {
+  /** Unique message identifier. */
   id: number;
+  /** Whether the sender is the buyer or seller. */
   sender: "buyer" | "seller";
+  /** Message text or formal offer details. */
   body: string;
+  /** Human-readable message time. */
   time: string;
+  /** Distinguishes a regular message from a formal offer. */
   kind?: "message" | "offer";
+  /** Associated formal offer identifier. */
   offerId?: number;
+  /** Current status of the associated offer. */
   offerStatus?: ChatOfferStatus;
 };
 
 /** Compact offer details used to build seller-side offer summaries. */
 export type ListingOfferItem = {
+  /** Formal offer ID or generated chat identifier. */
   id: number | string;
+  /** Buyer's username. */
   buyer: string;
+  /** Offer, borrow, claim, or chat entry type. */
   type: string;
+  /** Human-readable offer or latest chat details. */
   detail: string;
+  /** Current offer status or chat marker. */
   status: string;
 };
 
@@ -2500,13 +2512,21 @@ const pageData: Record<string, { title: string; subtitle: string }> = {
 
 /** Buyer-facing summary of an offer, borrow, or giveaway claim. */
 export type BuyerDeal = {
+  /** Unique offer or deal identifier. */
   id: number;
+  /** Listing associated with the transaction. */
   listing: Listing;
+  /** Transaction type requested by the buyer. */
   kind: "Offer" | "Borrow" | "Claim";
+  /** Current offer or deal status. */
   status: string;
+  /** Human-readable activity date. */
   date: string;
+  /** Offer amount, requested period, or other transaction details. */
   detail: string;
+  /** Borrow return date, when applicable. */
   dueDate?: string;
+  /** Whether the deal has been marked complete. */
   completed?: boolean;
 };
 
@@ -3467,15 +3487,25 @@ export function DealHistoryPage({
 
 /** Seller-facing view of a buyer's offer, borrowing request, or claim. */
 export type SellerRequest = {
+  /** Unique request identifier. */
   id: number;
+  /** Associated deal identifier. */
   dealId: number;
+  /** Listing receiving the request. */
   listing: Listing;
+  /** Requesting buyer's username. */
   buyer: string;
+  /** Participant who most recently changed the request. */
   lastActionBy: "buyer" | "seller" | null;
+  /** Requested sale, borrowing, or giveaway action. */
   type: "Offer" | "Borrow" | "Claim";
+  /** Human-readable request submission time. */
   submitted: string;
+  /** Offer amount, requested period, or other request details. */
   detail: string;
+  /** Current request status. */
   status: "Pending" | "Accepted" | "Declined" | "Countered";
+  /** Listing availability when the request was mapped. */
   listingStatus: "Available" | "Reserved" | "Sold" | "Lent" | "Given";
 };
 
@@ -3888,9 +3918,13 @@ export type ListingFormType = "" | "Sell" | "Lend" | "Give Away";
 
 /** A photo preview and optional upload file used by listing forms. */
 export type PhotoPreview = {
+  /** Unique identifier for this preview in the form. */
   id: string;
+  /** Original photo filename or generated display name. */
   name: string;
+  /** Object URL or existing public image URL. */
   url: string;
+  /** Original image file when it is a new upload. */
   file?: File;
 };
 
@@ -4257,16 +4291,27 @@ export function CreateListingForm({
 
 /** UI-ready notification data used by the notification helpers and board. */
 export type NotificationItem = {
+  /** Unique notification identifier. */
   id: number;
+  /** Notification category used for filtering. */
   category: string;
+  /** Short notification heading. */
   title: string;
+  /** Detailed notification text. */
   message: string;
+  /** Human-readable notification time. */
   timestamp: string;
+  /** Relative date group used to organize notifications. */
   dateGroup: "Today" | "Earlier";
+  /** Icon name representing the notification. */
   icon: string;
+  /** Visual color tone for the notification. */
   tone: "navy" | "gold" | "green" | "red";
+  /** Optional action label shown with the notification. */
   action?: string;
+  /** Listing targeted by the notification action. */
   listingId?: number;
+  /** Chat thread targeted by the notification action. */
   threadId?: number;
 };
 
@@ -4616,11 +4661,17 @@ export function NotificationBoard({
 
 /** Listing submission data shown in the administrator review queue. */
 export type ReviewListing = {
+  /** Unique listing identifier. */
   id: number;
+  /** Listing awaiting or having completed moderation. */
   listing: Listing;
+  /** Seller's full display name. */
   sellerFullName: string;
+  /** Human-readable submission time. */
   submitted: string;
+  /** Current moderation status. */
   status: "Pending Review" | "Approved" | "Rejected" | "Removed";
+  /** Administrator's explanation when the listing is rejected. */
   rejectionReason?: string;
 };
 
@@ -5384,11 +5435,17 @@ export type SellerListingStatus = "Pending" | "Live" | "Rejected" | "Reserved" |
 
 /** A seller listing together with its moderation and offer activity. */
 export type SellerListingRecord = {
+  /** Unique listing identifier. */
   id: number;
+  /** Seller's listing data. */
   listing: Listing;
+  /** Current seller-facing listing lifecycle state. */
   status: SellerListingStatus;
+  /** Number of active offers or requests. */
   activeOffers: number;
+  /** Human-readable time of the latest listing update. */
   updated: string;
+  /** Administrator's explanation when the listing was rejected. */
   rejectionReason?: string;
 };
 
@@ -5882,18 +5939,31 @@ export function SellerListingsPage({
 
 /** Review content and moderation state shown to a seller or administrator. */
 export type SellerReview = {
+  /** Unique review identifier. */
   id: number;
+  /** Buyer-submitted star rating. */
   rating: number;
+  /** Buyer's written review. */
   text: string;
+  /** Buyer's username. */
   buyer: string;
+  /** Reviewed seller's username. */
   sellerUsername: string;
+  /** Human-readable review date. */
   date: string;
+  /** Date key used to sort or filter reviews. */
   dateKey: string;
+  /** Listing associated with the completed deal. */
   listing: Listing;
+  /** Seller's reply to the review. */
   reply?: string;
+  /** Human-readable reply time. */
   repliedAt?: string;
+  /** Whether the review was flagged for moderation. */
   flagged?: boolean;
+  /** Reason provided when the review was flagged. */
   flagReason?: string;
+  /** Whether administrators have hidden the review. */
   hidden?: boolean;
 };
 
@@ -6275,9 +6345,14 @@ export function SellerReviewsPage({
 
 /** Marketplace listing with administrator-wide status and submission metadata. */
 export type SystemListing = {
+  /** Unique listing identifier. */
   id: number;
+  /** Listing data visible to administrators. */
   listing: Listing;
+  /** Seller's full display name. */
   sellerFullName: string;
+  /** Current system-wide listing status. */
+  /** Current system-wide listing status. */
   status:
     | "Pending Review"
     | "Live"
@@ -6287,6 +6362,7 @@ export type SystemListing = {
     | "Given"
     | "Rejected"
     | "Removed";
+  /** Human-readable listing submission time. */
   submitted: string;
 };
 
@@ -6575,13 +6651,21 @@ export function AllListingsPage({
 
 /** System-wide summary of a completed or active marketplace deal. */
 export type SystemDeal = {
+  /** Unique deal identifier. */
   id: number;
+  /** Listing title associated with the deal. */
   title: string;
+  /** Buyer's username. */
   buyer: string;
+  /** Seller's username. */
   seller: string;
+  /** Completed transaction type. */
   type: "Sold" | "Lent" | "Given";
+  /** Deal start date. */
   start: string;
+  /** Deal end or return date. */
   end: string;
+  /** Current deal status. */
   status: string;
 };
 /**
@@ -6708,13 +6792,21 @@ export function AllDealsPage({ deals }: { deals: SystemDeal[] }) {
 
 /** Aggregate rating statistics for one seller. */
 export type SellerRating = {
+  /** Seller's username. */
   seller: string;
+  /** Seller's full display name. */
   name: string;
+  /** Average star rating. */
   average: number;
+  /** Total number of reviews. */
   reviews: number;
+  /** Number of five-star reviews. */
   fiveStar: number;
+  /** Human-readable date of the latest review. */
   latest: string;
+  /** Timestamp of the latest review. */
   latestAt: string;
+  /** Number of listings associated with the seller. */
   listings: number;
 };
 /**

@@ -5,43 +5,73 @@ export type Role = "Buyer" | "Seller" | "Admin";
 
 /** Public profile fields shared by buyer and seller accounts. */
 export type MarketplaceUser = {
+  /** Unique profile identifier. */
   id?: string;
+  /** Account username. */
   username: string;
+  /** User's display name. */
   fullName: string;
+  /** Marketplace role for this account. */
   role: "Buyer" | "Seller";
+  /** Residence or hall information. */
   residence?: string;
+  /** Public profile biography. */
   bio?: string;
+  /** Preferred meetup locations. */
   meetups?: string[];
+  /** Whether the account is active or deactivated. */
   status?: "Active" | "Deactivated";
 };
 
 /** Local administrator identity and display information. */
 export type AdminProfile = {
+  /** Administrator sign-in username. */
   username: string;
+  /** Administrator password for the local sign-in flow. */
   password: string;
+  /** Administrator's display name. */
   fullName: string;
 };
 
 /** Marketplace listing data used throughout the application. */
 export type Listing = {
+  /** Unique listing identifier. */
   id: number;
+  /** Listing title. */
   title: string;
+  /** Seller's username. */
   seller: string;
+  /** Listing category. */
   category: string;
+  /** Whether the item is sold, lent, or given away. */
   type: "Sell" | "Lend" | "Give Away";
+  /** Asking price for a sale listing. */
   price?: number;
+  /** Maximum lending duration amount. */
   duration?: number;
+  /** Unit for the maximum lending duration. */
   durationUnit?: "Hours" | "Days" | "Weeks";
+  /** Item condition. */
   condition: string;
+  /** Preferred meetup location. */
   location: string;
+  /** Human-readable posting date. */
   posted: string;
+  /** Primary listing photo URL. */
   image: string;
+  /** Additional listing photo URLs. */
   images?: string[];
+  /** Seller-provided item description. */
   description: string;
+  /** Number of listing views. */
   views?: number;
+  /** Current availability or moderation status. */
   availability?: string;
+  /** Seller's full display name, when available. */
   sellerFullName?: string;
+  /** Seller's average rating, when available. */
   sellerRating?: number;
+  /** Number of seller reviews, when available. */
   sellerReviewCount?: number;
 };
 
@@ -50,84 +80,139 @@ export type ChatOfferStatus = "Pending" | "Accepted" | "Declined" | "Countered";
 
 /** Chat message or formal offer after mapping from the database. */
 export type ChatMessage = {
+  /** Unique message identifier. */
   id: number;
+  /** Whether the message was sent by the buyer or seller. */
   sender: "buyer" | "seller";
+  /** Message text or offer details. */
   body: string;
+  /** Human-readable message time. */
   time: string;
+  /** Distinguishes regular messages from formal offers. */
   kind?: "message" | "offer";
+  /** Associated formal offer identifier. */
   offerId?: number;
+  /** Current status of the associated offer. */
   offerStatus?: ChatOfferStatus;
 };
 
 /** Chat thread summary for the current user's inbox. */
 export type MyChatThread = {
+  /** Unique chat thread identifier. */
   id: number;
+  /** Listing discussed in the thread. */
   listing: Listing;
+  /** Other participant's username. */
   counterparty: string;
+  /** Most recent message text. */
   lastMessage: string;
+  /** Human-readable time of the latest activity. */
   updated: string;
 };
 
 /** Buyer-facing summary of a listing offer, borrow, or claim. */
 export type BuyerDeal = {
+  /** Unique offer or deal identifier. */
   id: number;
+  /** Listing associated with the transaction. */
   listing: Listing;
+  /** Transaction type requested by the buyer. */
   kind: "Offer" | "Borrow" | "Claim";
+  /** Current offer or deal status. */
   status: string;
+  /** Human-readable activity date. */
   date: string;
+  /** Original timestamp used for sorting, when available. */
   rawDate?: string;
+  /** Offer amount, requested period, or other transaction details. */
   detail: string;
+  /** Borrow return date, when applicable. */
   dueDate?: string;
+  /** Whether the deal has been marked complete. */
   completed?: boolean;
 };
 
 /** Seller-facing view of a buyer request and its current listing state. */
 export type SellerRequest = {
+  /** Unique request identifier. */
   id: number;
+  /** Associated deal identifier. */
   dealId: number;
+  /** Listing receiving the request. */
   listing: Listing;
+  /** Requesting buyer's username. */
   buyer: string;
+  /** Participant who most recently changed the request. */
   lastActionBy: "buyer" | "seller" | null;
+  /** Requested sale, borrowing, or giveaway action. */
   type: "Offer" | "Borrow" | "Claim";
+  /** Human-readable request submission time. */
   submitted: string;
+  /** Offer amount, requested period, or other request details. */
   detail: string;
+  /** Current request status. */
   status: "Pending" | "Accepted" | "Declined" | "Countered";
+  /** Listing availability when the request was mapped. */
   listingStatus: "Available" | "Reserved" | "Sold" | "Lent" | "Given";
 };
 
 /** Application-ready notification content and its optional action targets. */
 export type NotificationItem = {
+  /** Unique notification identifier. */
   id: number;
+  /** Notification category used for filtering. */
   category: string;
+  /** Short notification heading. */
   title: string;
+  /** Detailed notification text. */
   message: string;
+  /** Human-readable notification time. */
   timestamp: string;
+  /** Relative date group used to organize notifications. */
   dateGroup: "Today" | "Earlier";
+  /** Icon name representing the notification. */
   icon: string;
+  /** Visual color tone for the notification. */
   tone: "navy" | "gold" | "green" | "red";
+  /** Optional action label shown with the notification. */
   action?: string;
+  /** Listing targeted by the notification action. */
   listingId?: number;
+  /** Chat thread targeted by the notification action. */
   threadId?: number;
 };
 
 /** Listing review record shown in the administrator queue. */
 export type ReviewListing = {
+  /** Unique listing identifier. */
   id: number;
+  /** Listing awaiting or having completed moderation. */
   listing: Listing;
+  /** Seller's full display name. */
   sellerFullName: string;
+  /** Human-readable submission time. */
   submitted: string;
+  /** Current moderation status. */
   status: "Pending Review" | "Approved" | "Rejected" | "Removed";
+  /** Administrator's explanation when the listing is rejected. */
   rejectionReason?: string;
 };
 
 /** User-submitted report and its moderation resolution, if closed. */
 export type ListingReport = {
+  /** Unique report identifier. */
   id: number;
+  /** Listing referenced by the report. */
   listing: Listing;
+  /** Username of the reporting user. */
   reporter: string;
+  /** User-provided reason for the report. */
   reason: string;
+  /** Human-readable report submission time. */
   submitted: string;
+  /** Whether the report still requires moderation. */
   status: "Pending" | "Closed";
+  /** Resolution recorded when the report was closed. */
   closedAs?: "reviewed" | "dismissed";
 };
 
@@ -143,36 +228,60 @@ export type SellerListingStatus =
 
 /** Seller listing with its activity count and moderation metadata. */
 export type SellerListingRecord = {
+  /** Unique listing identifier. */
   id: number;
+  /** Seller's listing data. */
   listing: Listing;
+  /** Current seller-facing listing lifecycle state. */
   status: SellerListingStatus;
+  /** Number of active offers or requests. */
   activeOffers: number;
+  /** Human-readable time of the latest listing update. */
   updated: string;
+  /** Administrator's explanation when the listing was rejected. */
   rejectionReason?: string;
 };
 
 /** Buyer review with seller response and moderation fields. */
 export type SellerReview = {
+  /** Unique review identifier. */
   id: number;
+  /** Buyer-submitted star rating. */
   rating: number;
+  /** Buyer's written review. */
   text: string;
+  /** Buyer's username. */
   buyer: string;
+  /** Reviewed seller's username. */
   sellerUsername: string;
+  /** Human-readable review date. */
   date: string;
+  /** ISO-like date key used for sorting and filtering. */
   dateKey: string;
+  /** Listing associated with the completed deal. */
   listing: Listing;
+  /** Seller's reply to the review. */
   reply?: string;
+  /** Human-readable reply time. */
   repliedAt?: string;
+  /** Whether the review was flagged for moderation. */
   flagged?: boolean;
+  /** Reason provided when the review was flagged. */
   flagReason?: string;
+  /** Whether administrators have hidden the review. */
   hidden?: boolean;
 };
 
 /** Administrator-wide listing record with moderation status. */
 export type SystemListing = {
+  /** Unique listing identifier. */
   id: number;
+  /** Listing data visible to administrators. */
   listing: Listing;
+  /** Seller's full display name. */
   sellerFullName: string;
+  /** Current system-wide listing status. */
+  /** Current system-wide listing status. */
   status:
     | "Pending Review"
     | "Live"
@@ -182,74 +291,135 @@ export type SystemListing = {
     | "Given"
     | "Rejected"
     | "Removed";
+  /** Human-readable listing submission time. */
   submitted: string;
 };
 
 /** Administrator-wide summary of a marketplace deal. */
 export type SystemDeal = {
+  /** Unique deal identifier. */
   id: number;
+  /** Listing title associated with the deal. */
   title: string;
+  /** Buyer's username. */
   buyer: string;
+  /** Seller's username. */
   seller: string;
+  /** Completed transaction type. */
   type: "Sold" | "Lent" | "Given";
+  /** Deal start date. */
   start: string;
+  /** Deal end or return date. */
   end: string;
+  /** Current deal status. */
   status: string;
 };
 
 /** Aggregate public rating statistics for one seller. */
 export type SellerRating = {
+  /** Seller's username. */
   seller: string;
+  /** Seller's full display name. */
   name: string;
+  /** Average star rating. */
   average: number;
+  /** Total number of reviews. */
   reviews: number;
+  /** Number of five-star reviews. */
   fiveStar: number;
+  /** Human-readable date of the latest review. */
   latest: string;
+  /** Timestamp of the latest review. */
   latestAt: string;
+  /** Number of listings associated with the seller. */
   listings: number;
 };
 
 /** Completed transaction shown in a user's history. */
 export type HistoryDeal = {
+  /** Unique deal identifier. */
   id: number;
+  /** Listing associated with the completed transaction. */
   listing: Listing;
+  /** Deal date. */
   date: string;
+  /** Buyer's transaction outcome. */
   type: "Bought" | "Borrowed" | "Received";
+  /** Human-readable final deal status. */
   outcome: string;
 };
 
 /** Aggregated seller activity and chart data for the dashboard. */
 export type SellerStats = {
+  /** Total listing views for the seller. */
   views: number;
+  /** Total offers received. */
   offers: number;
+  /** Number of completed deals. */
   completed: number;
+  /** Seller's average star rating. */
   averageRating: number;
-  viewsByListing: { title: string; views: number }[];
-  dealsByType: { label: string; count: number; tone: string }[];
+  /** Per-listing view counts used by the dashboard chart. */
+  viewsByListing: {
+    /** Listing title. */
+    title: string;
+    /** Number of views for the listing. */
+    views: number;
+  }[];
+  /** Deal counts grouped by transaction type for the dashboard chart. */
+  dealsByType: {
+    /** Transaction type displayed in the chart legend. */
+    label: string;
+    /** Number of deals in this transaction type. */
+    count: number;
+    /** CSS color identifier for the chart segment. */
+    tone: string;
+  }[];
 };
 
 /** Complete marketplace state assembled for the authenticated session. */
 export type MarketplaceSnapshot = {
+  /** Authenticated profile identifier. */
   currentUserId: string;
+  /** Authenticated user's username. */
   currentUsername: string;
+  /** Authenticated user's marketplace role. */
   role: Role;
+  /** Buyer and seller profile data available to the session. */
   users: MarketplaceUser[];
+  /** Administrator sign-in profile. */
   adminProfile: AdminProfile;
+  /** All listing records accessible to the current session. */
   listings: Listing[];
+  /** Listings currently available to browse. */
   liveListings: Listing[];
+  /** Current user's buyer-side deals. */
   buyerDeals: BuyerDeal[];
+  /** Requests received by the current seller. */
   sellerRequests: SellerRequest[];
+  /** Notifications available to the current user. */
   notifications: NotificationItem[];
+  /** IDs of notifications already marked as read. */
   readNotificationIds: number[];
+  /** Listings in the administrator review queue. */
   reviewListings: ReviewListing[];
+  /** Reports awaiting or having completed moderation. */
   listingReports: ListingReport[];
+  /** Current seller's listings and their lifecycle metadata. */
   sellerListingRecords: SellerListingRecord[];
+  /** Reviews associated with the current seller. */
   sellerReviews: SellerReview[];
+  /** System-wide listing records for administrator screens. */
   systemListings: SystemListing[];
+  /** System-wide deals for administrator screens. */
   systemDeals: SystemDeal[];
+  /** Aggregate seller rating summaries. */
   sellerRatings: SellerRating[];
+  /** Deal IDs the current buyer has already rated. */
   ratedDealIds: number[];
+  /** Completed transaction history for the current user. */
   historyDeals: HistoryDeal[];
+  /** Aggregate seller activity and chart data. */
   sellerStats: SellerStats;
 };
 

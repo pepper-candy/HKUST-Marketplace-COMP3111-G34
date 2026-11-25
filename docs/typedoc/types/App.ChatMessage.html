@@ -16,7 +16,7 @@
 </div></section>
 <div class="tsd-signature"><span class="tsd-signature-keyword">type</span> <span class="tsd-kind-type-alias">ChatMessage</span> <span class="tsd-signature-symbol">=</span> <span class="tsd-signature-symbol">{</span><br/>    <a class="tsd-kind-property" href="#body">body</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#id">id</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#kind">kind</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;message&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;offer&quot;</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#offerid">offerId</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#offerstatus">offerStatus</a><span class="tsd-signature-symbol">?:</span> <a href="App.ChatOfferStatus.html" class="tsd-signature-type tsd-kind-type-alias">ChatOfferStatus</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#sender">sender</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;buyer&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;seller&quot;</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#time">time</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L21">App.tsx:21</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L21">App.tsx:21</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
@@ -37,39 +37,53 @@
 <section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="body"><span>body</span><a href="#body" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">body</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">body</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Message text or formal offer details.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L24">App.tsx:24</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L27">App.tsx:27</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="id"><span>id</span><a href="#id" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-comment tsd-typography"><p>Unique message identifier.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L22">App.tsx:22</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L23">App.tsx:23</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="kind"><code class="tsd-tag">Optional</code><span>kind</span><a href="#kind" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">kind</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;message&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;offer&quot;</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">kind</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;message&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;offer&quot;</span></div>
+<div class="tsd-comment tsd-typography"><p>Distinguishes a regular message from a formal offer.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L26">App.tsx:26</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L31">App.tsx:31</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="offerid"><code class="tsd-tag">Optional</code><span>offer<wbr/>Id</span><a href="#offerid" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">offerId</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">offerId</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-comment tsd-typography"><p>Associated formal offer identifier.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L27">App.tsx:27</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L33">App.tsx:33</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="offerstatus"><code class="tsd-tag">Optional</code><span>offer<wbr/>Status</span><a href="#offerstatus" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">offerStatus</span><span class="tsd-signature-symbol">?:</span> <a href="App.ChatOfferStatus.html" class="tsd-signature-type tsd-kind-type-alias">ChatOfferStatus</a></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">offerStatus</span><span class="tsd-signature-symbol">?:</span> <a href="App.ChatOfferStatus.html" class="tsd-signature-type tsd-kind-type-alias">ChatOfferStatus</a></div>
+<div class="tsd-comment tsd-typography"><p>Current status of the associated offer.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L28">App.tsx:28</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L35">App.tsx:35</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="sender"><span>sender</span><a href="#sender" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">sender</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;buyer&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;seller&quot;</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">sender</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;buyer&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;seller&quot;</span></div>
+<div class="tsd-comment tsd-typography"><p>Whether the sender is the buyer or seller.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L23">App.tsx:23</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L25">App.tsx:25</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="time"><span>time</span><a href="#time" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">time</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">time</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Human-readable message time.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L25">App.tsx:25</a></li></ul></aside></section></section></details></div>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L29">App.tsx:29</a></li></ul></aside></section></section></details></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">

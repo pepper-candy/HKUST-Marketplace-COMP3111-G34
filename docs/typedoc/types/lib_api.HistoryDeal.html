@@ -16,7 +16,7 @@
 </div></section>
 <div class="tsd-signature"><span class="tsd-signature-keyword">type</span> <span class="tsd-kind-type-alias">HistoryDeal</span> <span class="tsd-signature-symbol">=</span> <span class="tsd-signature-symbol">{</span><br/>    <a class="tsd-kind-property" href="#date">date</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#id">id</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#listing">listing</a><span class="tsd-signature-symbol">:</span> <a href="lib_api.Listing.html" class="tsd-signature-type tsd-kind-type-alias">Listing</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#outcome">outcome</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#type">type</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;Bought&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Borrowed&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Received&quot;</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/lib/api.ts#L213">lib/api.ts:213</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/lib/api.ts#L339">lib/api.ts:339</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
@@ -35,29 +35,39 @@
 <section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="date"><span>date</span><a href="#date" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">date</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">date</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Deal date.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/lib/api.ts#L216">lib/api.ts:216</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/lib/api.ts#L345">lib/api.ts:345</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="id"><span>id</span><a href="#id" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-comment tsd-typography"><p>Unique deal identifier.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/lib/api.ts#L214">lib/api.ts:214</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/lib/api.ts#L341">lib/api.ts:341</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="listing"><span>listing</span><a href="#listing" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">listing</span><span class="tsd-signature-symbol">:</span> <a href="lib_api.Listing.html" class="tsd-signature-type tsd-kind-type-alias">Listing</a></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">listing</span><span class="tsd-signature-symbol">:</span> <a href="lib_api.Listing.html" class="tsd-signature-type tsd-kind-type-alias">Listing</a></div>
+<div class="tsd-comment tsd-typography"><p>Listing associated with the completed transaction.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/lib/api.ts#L215">lib/api.ts:215</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/lib/api.ts#L343">lib/api.ts:343</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="outcome"><span>outcome</span><a href="#outcome" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">outcome</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">outcome</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Human-readable final deal status.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/lib/api.ts#L218">lib/api.ts:218</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/lib/api.ts#L349">lib/api.ts:349</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="type"><span>type</span><a href="#type" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">type</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;Bought&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Borrowed&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Received&quot;</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">type</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;Bought&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Borrowed&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Received&quot;</span></div>
+<div class="tsd-comment tsd-typography"><p>Buyer's transaction outcome.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/lib/api.ts#L217">lib/api.ts:217</a></li></ul></aside></section></section></details></div>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/lib/api.ts#L347">lib/api.ts:347</a></li></ul></aside></section></section></details></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">

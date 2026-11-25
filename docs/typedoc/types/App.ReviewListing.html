@@ -16,7 +16,7 @@
 </div></section>
 <div class="tsd-signature"><span class="tsd-signature-keyword">type</span> <span class="tsd-kind-type-alias">ReviewListing</span> <span class="tsd-signature-symbol">=</span> <span class="tsd-signature-symbol">{</span><br/>    <a class="tsd-kind-property" href="#id">id</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#listing">listing</a><span class="tsd-signature-symbol">:</span> <a href="App.Listing.html" class="tsd-signature-type tsd-kind-type-alias">Listing</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#rejectionreason">rejectionReason</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#sellerfullname">sellerFullName</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#status">status</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;Pending Review&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Approved&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Rejected&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Removed&quot;</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#submitted">submitted</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L4618">App.tsx:4618</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L4663">App.tsx:4663</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
@@ -36,34 +36,46 @@
 <section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="id"><span>id</span><a href="#id" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-comment tsd-typography"><p>Unique listing identifier.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L4619">App.tsx:4619</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L4665">App.tsx:4665</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="listing"><span>listing</span><a href="#listing" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">listing</span><span class="tsd-signature-symbol">:</span> <a href="App.Listing.html" class="tsd-signature-type tsd-kind-type-alias">Listing</a></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">listing</span><span class="tsd-signature-symbol">:</span> <a href="App.Listing.html" class="tsd-signature-type tsd-kind-type-alias">Listing</a></div>
+<div class="tsd-comment tsd-typography"><p>Listing awaiting or having completed moderation.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L4620">App.tsx:4620</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L4667">App.tsx:4667</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="rejectionreason"><code class="tsd-tag">Optional</code><span>rejection<wbr/>Reason</span><a href="#rejectionreason" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">rejectionReason</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">rejectionReason</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Administrator's explanation when the listing is rejected.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L4624">App.tsx:4624</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L4675">App.tsx:4675</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="sellerfullname"><span>seller<wbr/>Full<wbr/>Name</span><a href="#sellerfullname" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">sellerFullName</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">sellerFullName</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Seller's full display name.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L4621">App.tsx:4621</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L4669">App.tsx:4669</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="status"><span>status</span><a href="#status" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">status</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;Pending Review&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Approved&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Rejected&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Removed&quot;</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">status</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;Pending Review&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Approved&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Rejected&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Removed&quot;</span></div>
+<div class="tsd-comment tsd-typography"><p>Current moderation status.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L4623">App.tsx:4623</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L4673">App.tsx:4673</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="submitted"><span>submitted</span><a href="#submitted" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-signature"><span class="tsd-kind-property">submitted</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-kind-property">submitted</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+<div class="tsd-comment tsd-typography"><p>Human-readable submission time.</p>
+</div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/d5040b132faa6239b8742d3653d89d0914bb7fcf/src/App.tsx#L4622">App.tsx:4622</a></li></ul></aside></section></section></details></div>
+<li>Defined in <a href="https://github.com/pepper-candy/HKUST-Marketplace-COMP3111-G34//blob/382f3612b391a8ab5df2b8ca1ee4826d46f76d11/src/App.tsx#L4671">App.tsx:4671</a></li></ul></aside></section></section></details></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">
