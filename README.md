@@ -1,6 +1,10 @@
 # HKUST Marketplace
 
-COMP3111 F2026, Group 34 (Non-Honors). Buyer, seller, and admin portals from the Canvas Task 1–3 spec, backed by Supabase Auth + Postgres.
+COMP3111 F2026 Group 34
+
+please see `docs/index.html`.
+
+---
 
 ## Password strength rules
 

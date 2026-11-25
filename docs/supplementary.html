@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>HKUST Marketplace Documentation: G34</title>
+	</head>
+	<body>
+		<h1>HKUST Marketplace Documentation: G34</h1>
+		<a href="index.html">Home...</a>
+		<h2 id="password-strength-rules">Password strength rules</h2>
+		<p>Registration and profile password updates require all of:</p>
+		<ul>
+			<li>At least 8 characters</li>
+			<li>One uppercase letter</li>
+			<li>One lowercase letter</li>
+			<li>One number</li>
+		</ul>
+		<p>Confirm-password is checked only on client side. Passwords hashed by Supabase Auth.</p>
+
+		<hr />
+		<h2 id="app-env">Setting up the project</h2>
+		<ol type="1">
+			<li>Install dependencies (<code>npm install</code>). Use npm only; do not add <code>pnpm-lock.yaml</code> (Vercel will pick pnpm and CI will fail).</li>
+			<li>Copy <code>.env.example</code> to <code>.env.local</code> and set:
+				<ul>
+					<li><code>VITE_SUPABASE_URL</code></li>
+					<li><code>VITE_SUPABASE_PUBLISHABLE_KEY</code></li>
+				</ul>
+			</li>
+			<li>Supabase Dashboard → SQL Editor → New query → paste all of <code>supabase/000_init.sql</code> → Run.</li>
+			<li>Seed the admin account:
+				<ol>
+					<li>Supabase Dashboard → Authentication → Users → Add user.</li>
+					<li>Email: <code>admin@ust.hk</code></li>
+					<li>Set a password.</li>
+					<li>Enable Auto Confirm User.</li>
+					<li>Save.</li>
+				</ol>
+			</li>
+			<li>Authentication → Providers → Email → turn off “Confirm email”</li>
+			<li>Storage → listing-photos → confirm the bucket is set to Public</li>
+			<li>Database → Publications → set <code>supabase_realtime</code> ON. </li>
+			<li>That's it! Start the app with <code>npm run dev</code>.</li>
+		</ol>
+		<hr />
+		<h2>Other miscellaneous things to document</h2>
+		<h3>User credentials</h3>
+		<p>Signup internally uses a fake email generated using the username. Usernames become emails in the form of <code>g34mp+{username}@gmail.com</code> (Supabase rejects<code>.local</code> addresses with <code>email_address_invalid</code>).
+		Users still login using username + password.</p>
+		<h3>Generating dummy data after initialising the database</h3>
+		<p>To populate the database with some dummy data, on Supabase run the following and only the following in order:</p>
+		<ol type="1">
+			<li><code>supabase/003_demo_seed.sql</code></li>
+			<li><code>supabase/005_demo_listing_photos.sql</code></li>
+			<li><code>supabase/006_demo_match_photos_and_listings.sql</code></li>
+			<li><code>supabase/007_fix_broken_and_follow_photos.sql</code></li>
+		</ol>
+		<p>The credentials for the populated accounts can be found in <code>demo/accounts.csv</code>.</p>
+		<h3>User deletion</h3>
+		<p>Permanent delete is a soft delete. The profile is marked deleted, the user's live/pending listings are taken down, and deals/chats are retained for audit.</p>
+		<h3>Schema</h3>
+		<p>See <code>supabase/000_init.sql</code> for details.</p>
+		<hr />
+		<a href="index.html">Home...</a>
+	</body>
+</html>
