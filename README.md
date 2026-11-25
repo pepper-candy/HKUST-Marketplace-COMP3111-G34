@@ -2,7 +2,7 @@
 
 COMP3111 F2026 Group 34
 
-please see `docs/index.html`.
+['Documentation'](https://pepper-candy.github.io/HKUST-Marketplace-COMP3111-G34/).
 
 ---
 
