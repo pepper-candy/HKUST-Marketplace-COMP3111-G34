@@ -62,7 +62,12 @@ function shouldTrack(input: RequestInfo | URL) {
   return true;
 }
 
-/** Wraps `fetch` with shared busy-state tracking for ordinary requests. */
+/**
+ * Wraps `fetch` with shared busy-state tracking for ordinary requests.
+ *
+ * @param input Request URL or request object passed to `fetch`.
+ * @param init Optional fetch request options.
+ */
 export async function trackedFetch(
   input: RequestInfo | URL,
   init?: RequestInit,

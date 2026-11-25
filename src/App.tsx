@@ -39,7 +39,11 @@ export type ListingOfferItem = {
 
 const CHAT_OFFER_DECLINED_MARKER = "__HKUST_OFFER_DECLINED__:";
 
-/** Maps status text to the visual tone used by marketplace badges. */
+/**
+ * Maps status text to the visual tone used by marketplace badges.
+ *
+ * @param label Status text to classify.
+ */
 export function statusTone(label: string): "ok" | "wait" | "bad" {
   const text = label.trim().toLowerCase();
   if (
@@ -84,7 +88,12 @@ export function applyDefaultBorrowPeriod(
   setEnd(period.end);
 }
 
-/** Normalizes legacy offer wording to the terminology used by the UI. */
+/**
+ * Normalizes legacy offer wording to the terminology used by the UI.
+ *
+ * @param body Original offer or counter-offer text.
+ * @param listingType Listing type used to distinguish lending counters from price offers.
+ */
 export function unifyOfferCopy(body: string, listingType: Listing["type"]) {
   let text = body
     .replace(/^Proposed price:\s*/i, "Offer: ")
@@ -100,9 +109,13 @@ export function unifyOfferCopy(body: string, listingType: Listing["type"]) {
 }
 
 /**
- * returns an array of offer messages in the chat of a given listing and buyer.
+ * Extracts formal offer messages for the selected listing and participant.
+ *
+ * @param listing Listing associated with the conversation.
+ * @param messages Messages available in the conversation.
+ * @param buyerName Participant whose offers should be summarized.
+ * @param role Current user's role, used to filter buyer-side offers.
  */
-/** Extracts formal offer messages for the selected listing and participant. */
 export function chatOffersForListing(
   listing: Listing,
   messages: ChatMessage[],
@@ -125,7 +138,12 @@ export function chatOffersForListing(
     }));
 }
 
-/** Returns whether an offer message has been superseded or declined. */
+/**
+ * Returns whether an offer message has been superseded or declined.
+ *
+ * @param message Offer message to check.
+ * @param messages All messages in its conversation.
+ */
 export function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   if (message.kind !== "offer") return false;
   if (message.offerStatus === "Declined") return true;
@@ -140,7 +158,12 @@ export function isStaleOfferBubble(message: ChatMessage, messages: ChatMessage[]
   return group.at(-1)?.id !== message.id;
 }
 
-/** Identifies the first offer message in its offer thread. */
+/**
+ * Identifies the first offer message in its offer thread.
+ *
+ * @param message Offer message to check.
+ * @param messages All messages in its conversation.
+ */
 export function isInitialOfferBubble(message: ChatMessage, messages: ChatMessage[]) {
   if (message.kind !== "offer") return false;
   const earlier = messages
@@ -154,7 +177,13 @@ export function isInitialOfferBubble(message: ChatMessage, messages: ChatMessage
   return earlier === 0;
 }
 
-/** Applies current deal/request statuses to matching chat offer messages. */
+/**
+ * Applies current deal/request statuses to matching chat offer messages.
+ *
+ * @param current Chat messages grouped by listing ID.
+ * @param requests Seller requests containing authoritative offer statuses.
+ * @param deals Buyer deals containing authoritative offer statuses.
+ */
 export function syncChatOfferStatuses(
   current: Record<number, ChatMessage[]>,
   requests: api.SellerRequest[],
@@ -180,7 +209,11 @@ export function syncChatOfferStatuses(
   return changed ? next : current;
 }
 
-/** Keeps only the latest offer entry for each buyer, preserving buyer order. */
+/**
+ * Keeps only the latest offer entry for each buyer, preserving buyer order.
+ *
+ * @param offers Offer and chat entries to reduce.
+ */
 export function latestOffersByBuyer(offers: ListingOfferItem[]) {
   const latest = new Map<string, ListingOfferItem>();
   for (const offer of offers) {
@@ -189,7 +222,12 @@ export function latestOffersByBuyer(offers: ListingOfferItem[]) {
   return [...latest.values()];
 }
 
-/** Combines offer records with chat participants, preferring primary records. */
+/**
+ * Combines offer records with chat participants, preferring primary records.
+ *
+ * @param primary Formal offer entries, which take precedence for duplicate buyers.
+ * @param extra Additional chat participants without formal offers.
+ */
 export function mergeListingOffers(primary: ListingOfferItem[], extra: ListingOfferItem[]) {
   return latestOffersByBuyer([...extra, ...primary]);
 }
@@ -200,7 +238,11 @@ const dealToneColors: Record<string, string> = {
   given: "#7fa491",
 };
 
-/** Builds the CSS conic-gradient for a seller's deal-type breakdown. */
+/**
+ * Builds the CSS conic-gradient for a seller's deal-type breakdown.
+ *
+ * @param items Deal counts and color tones to render.
+ */
 export function dealsDonutBackground(items: api.SellerStats["dealsByType"]) {
   const total = items.reduce((sum, item) => sum + item.count, 0);
   if (total === 0) return "#edf0f2";
@@ -217,7 +259,12 @@ export function dealsDonutBackground(items: api.SellerStats["dealsByType"]) {
   return `conic-gradient(${segments.join(", ")})`;
 }
 
-/** Adds chat participants who do not already have a formal offer entry. */
+/**
+ * Adds chat participants who do not already have a formal offer entry.
+ *
+ * @param offers Existing formal offer entries.
+ * @param people Chat participants and their latest message summaries.
+ */
 export function withListingChatPeople(
   offers: ListingOfferItem[],
   people: { id: string; buyer: string; lastMessage: string }[],
@@ -350,7 +397,11 @@ const iconPaths: Record<string, React.ReactNode> = {
   arrow: <path d="m5 12 14 0m-5-5 5 5-5 5" />,
 };
 
-/** Renders a shared marketplace SVG icon at the requested size. */
+/**
+ * Renders a shared marketplace SVG icon at the requested size.
+ *
+ * @param __namedParameters Icon name and optional rendered size.
+ */
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   return (
     <svg
@@ -369,7 +420,11 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   );
 }
 
-/** Derives one or two uppercase initials for an avatar. */
+/**
+ * Derives one or two uppercase initials for an avatar.
+ *
+ * @param name Display name to convert into initials.
+ */
 export function avatarInitials(name: string) {
   const parts = name
     .trim()
@@ -381,7 +436,11 @@ export function avatarInitials(name: string) {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
-/** Displays a rounded five-star rating with an accessible text label. */
+/**
+ * Displays a rounded five-star rating with an accessible text label.
+ *
+ * @param __namedParameters Rating value and optional size and CSS class.
+ */
 export function StarMeter({
   value,
   size = 14,
@@ -429,12 +488,20 @@ export function Logo() {
   );
 }
 
-/** Checks that a listing photo URL can be rendered as an image. */
+/**
+ * Checks that a listing photo URL can be rendered as an image.
+ *
+ * @param src Optional photo URL to validate.
+ */
 export function isUsableListingPhoto(src?: string): src is string {
   return typeof src === "string" && src.length > 0 && !src.startsWith("data:image/svg");
 }
 
-/** Displays a listing image or an accessible placeholder when it is unavailable. */
+/**
+ * Displays a listing image or an accessible placeholder when it is unavailable.
+ *
+ * @param __namedParameters Image source, alternative text, and optional load callbacks.
+ */
 export function ListingPhoto({
   src,
   alt,
@@ -474,7 +541,11 @@ export function ListingPhoto({
   );
 }
 
-/** Renders a browse-card summary and forwards selection to the caller. */
+/**
+ * Renders a browse-card summary and forwards selection to the caller.
+ *
+ * @param __namedParameters Listing data and the callback invoked when it is opened.
+ */
 export function ListingCard({ listing, onOpen }: { listing: Listing; onOpen: () => void }) {
   return (
     <article className="listing-card" onClick={onOpen}>
@@ -515,7 +586,11 @@ export function ListingCard({ listing, onOpen }: { listing: Listing; onOpen: () 
   );
 }
 
-/** Provides searchable, filterable, and sortable access to live listings. */
+/**
+ * Provides searchable, filterable, and sortable access to live listings.
+ *
+ * @param __namedParameters Listings to display and callbacks for opening and refreshing them.
+ */
 export function Browse({
   listings,
   onOpen,
@@ -668,7 +743,11 @@ export function Browse({
   );
 }
 
-/** Presents listing details and role-specific actions in a modal. */
+/**
+ * Presents listing details and role-specific actions in a modal.
+ *
+ * @param __namedParameters Listing context, current role, and modal action callbacks.
+ */
 export function DetailModal({
   listing,
   role,
@@ -1357,7 +1436,11 @@ export function DetailModal({
   );
 }
 
-/** Shows a seller's public profile, rating, and related marketplace context. */
+/**
+ * Shows a seller's public profile, rating, and related marketplace context.
+ *
+ * @param __namedParameters Seller identity, related marketplace data, and modal callbacks.
+ */
 export function SellerProfileModal({
   seller,
   fullName,
@@ -1529,7 +1612,11 @@ export function SellerProfileModal({
   );
 }
 
-/** Renders a listing conversation with messaging and offer controls. */
+/**
+ * Renders a listing conversation with messaging and offer controls.
+ *
+ * @param __namedParameters Listing, participants, messages, and conversation callbacks.
+ */
 export function ChatScreen({
   listing,
   role,
@@ -2423,7 +2510,11 @@ export type BuyerDeal = {
   completed?: boolean;
 };
 
-/** Collects a star rating and optional written review after a completed deal. */
+/**
+ * Collects a star rating and optional written review after a completed deal.
+ *
+ * @param __namedParameters Completed deal details and close/submit callbacks.
+ */
 export function RatingDialog({
   deal,
   onClose,
@@ -2497,7 +2588,11 @@ export function RatingDialog({
   );
 }
 
-/** Lists completed deals that the buyer can rate. */
+/**
+ * Lists completed deals that the buyer can rate.
+ *
+ * @param __namedParameters Buyer deals, submitted ratings, and UI callbacks.
+ */
 export function RateSellersPage({
   deals,
   ratedDealIds,
@@ -2603,7 +2698,11 @@ export function RateSellersPage({
   );
 }
 
-/** Displays a buyer's active deals and their available actions. */
+/**
+ * Displays a buyer's active deals and their available actions.
+ *
+ * @param __namedParameters Deal state and callbacks for rating, chat, refresh, and actions.
+ */
 export function MyDealsPage({
   deals,
   ratedDealIds,
@@ -3191,7 +3290,11 @@ export function MyDealsPage({
   );
 }
 
-/** Shows completed and historical deal records for the current user. */
+/**
+ * Shows completed and historical deal records for the current user.
+ *
+ * @param __namedParameters Historical deals and a callback for opening a listing.
+ */
 export function DealHistoryPage({
   deals,
   onOpenListing,
@@ -3376,7 +3479,11 @@ export type SellerRequest = {
   listingStatus: "Available" | "Reserved" | "Sold" | "Lent" | "Given";
 };
 
-/** Lets sellers review and respond to incoming listing requests. */
+/**
+ * Lets sellers review and respond to incoming listing requests.
+ *
+ * @param __namedParameters Seller requests, buyer deal state, and action callbacks.
+ */
 export function SellerRequestsPage({
   requests,
   onRequestsChange,
@@ -3787,7 +3894,11 @@ export type PhotoPreview = {
   file?: File;
 };
 
-/** Creates a marketplace listing and uploads any selected photos. */
+/**
+ * Creates a marketplace listing and uploads any selected photos.
+ *
+ * @param __namedParameters Form callbacks, available seller accounts, and current role.
+ */
 export function CreateListingForm({
   onAction,
   onRefresh,
@@ -4159,7 +4270,12 @@ export type NotificationItem = {
   threadId?: number;
 };
 
-/** Finds a referenced listing from the text of a notification. */
+/**
+ * Finds a referenced listing from the text of a notification.
+ *
+ * @param message Notification title and body to search.
+ * @param listings Listings available to match against.
+ */
 export function listingFromNotification(message: string, listings: Listing[]) {
   const quoted = [...message.matchAll(/[“"]([^”"]+)[”"]/g)].map((match) => match[1].trim());
   for (const title of quoted) {
@@ -4169,7 +4285,12 @@ export function listingFromNotification(message: string, listings: Listing[]) {
   return listings.find((listing) => message.includes(listing.title));
 }
 
-/** Extracts a participant username from a notification using known accounts. */
+/**
+ * Extracts a participant username from a notification using known accounts.
+ *
+ * @param item Notification containing the participant reference.
+ * @param knownUsernames Optional usernames used to resolve multiword or ambiguous names.
+ */
 export function usernameFromNotification(item: NotificationItem, knownUsernames: string[] = []) {
   const fromTitle = item.title.match(/@(.+)$/)?.[1]?.trim();
   const names = [...new Set(knownUsernames.filter(Boolean))].sort((a, b) => b.length - a.length);
@@ -4185,7 +4306,15 @@ export function usernameFromNotification(item: NotificationItem, knownUsernames:
     ?? text.match(/@([A-Za-z0-9._-]+(?:\s+[A-Za-z0-9._-]+)*)/)?.[1]?.trim();
 }
 
-/** Resolves a notification to the listing and participant for its chat. */
+/**
+ * Resolves a notification to the listing and participant for its chat.
+ *
+ * @param item Notification to resolve.
+ * @param role Current user's marketplace role.
+ * @param listings Listings available for matching.
+ * @param sellerRequests Seller-side request records used to identify buyers.
+ * @param buyerDeals Buyer-side deal records used to identify sellers.
+ */
 export function chatTargetFromNotification(
   item: NotificationItem,
   role: Role,
@@ -4246,7 +4375,12 @@ export function chatTargetFromNotification(
   return null;
 }
 
-/** Maps a notification action to the role-appropriate destination page. */
+/**
+ * Maps a notification action to the role-appropriate destination page.
+ *
+ * @param action Notification action label.
+ * @param role Role whose navigation destination should be selected.
+ */
 export function pageForNotificationAction(action: string, role: Role) {
   if (action === "Review listing") return role === "Admin" ? "Listing Review" : "My Listings";
   if (action === "View listing") {
@@ -4265,7 +4399,11 @@ export function pageForNotificationAction(action: string, role: Role) {
   return null;
 }
 
-/** Displays notifications with read-state, filters, and action routing. */
+/**
+ * Displays notifications with read-state, filters, and action routing.
+ *
+ * @param __namedParameters Current role, notification data, and callbacks for read state and navigation.
+ */
 export function NotificationBoard({
   role,
   items,
@@ -4486,7 +4624,11 @@ export type ReviewListing = {
   rejectionReason?: string;
 };
 
-/** Allows administrators to approve or reject listings and resolve reports. */
+/**
+ * Allows administrators to approve or reject listings and resolve reports.
+ *
+ * @param __namedParameters Review queue records, reports, and moderation callbacks.
+ */
 export function ListingReviewPage({
   records,
   reports,
@@ -4901,7 +5043,11 @@ export function ListingReviewPage({
   );
 }
 
-/** Provides administrator search and account-management actions. */
+/**
+ * Provides administrator search and account-management actions.
+ *
+ * @param __namedParameters User records and callbacks for edits, feedback, and refreshing.
+ */
 export function ManageUsersPage({
   users,
   onUsersChange,
@@ -5246,7 +5392,11 @@ export type SellerListingRecord = {
   rejectionReason?: string;
 };
 
-/** Lets sellers filter, edit, and remove their listings. */
+/**
+ * Lets sellers filter, edit, and remove their listings.
+ *
+ * @param __namedParameters Seller listing records and callbacks for edits, removal, and refresh.
+ */
 export function SellerListingsPage({
   records,
   onRecordsChange,
@@ -5747,7 +5897,11 @@ export type SellerReview = {
   hidden?: boolean;
 };
 
-/** Lets sellers reply to buyer reviews and report inappropriate feedback. */
+/**
+ * Lets sellers reply to buyer reviews and report inappropriate feedback.
+ *
+ * @param __namedParameters Seller reviews and callbacks for updating, opening, and refreshing them.
+ */
 export function SellerReviewsPage({
   reviews,
   onReviewsChange,
@@ -6136,7 +6290,11 @@ export type SystemListing = {
   submitted: string;
 };
 
-/** Provides administrator search, filters, and moderation for all listings. */
+/**
+ * Provides administrator search, filters, and moderation for all listings.
+ *
+ * @param __namedParameters System listing data, reports, and moderation callbacks.
+ */
 export function AllListingsPage({
   records,
   onRecordsChange,
@@ -6426,7 +6584,11 @@ export type SystemDeal = {
   end: string;
   status: string;
 };
-/** Shows and filters system-wide deal history for administrators. */
+/**
+ * Shows and filters system-wide deal history for administrators.
+ *
+ * @param __namedParameters System-wide deals to display.
+ */
 export function AllDealsPage({ deals }: { deals: SystemDeal[] }) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("All types");
@@ -6555,7 +6717,11 @@ export type SellerRating = {
   latestAt: string;
   listings: number;
 };
-/** Summarizes seller ratings and provides date-filtered review details. */
+/**
+ * Summarizes seller ratings and provides date-filtered review details.
+ *
+ * @param __namedParameters Seller rating summaries and review moderation data.
+ */
 export function RatingsOverviewPage({
   ratings,
   reviews,
@@ -6773,7 +6939,11 @@ export function RatingsOverviewPage({
   );
 }
 
-/** Edits the current user's marketplace profile and account settings. */
+/**
+ * Edits the current user's marketplace profile and account settings.
+ *
+ * @param __namedParameters Profile values, role, and callbacks for saving and navigation.
+ */
 export function ProfilePage({
   role,
   currentUsername,
@@ -7008,7 +7178,11 @@ export function ProfilePage({
   );
 }
 
-/** Displays secondary marketplace information and support resources. */
+/**
+ * Displays secondary marketplace information and support resources.
+ *
+ * @param __namedParameters Destination page, role, marketplace state, and screen callbacks.
+ */
 export function SupportingPage({
   page,
   role,
@@ -7400,7 +7574,11 @@ export function SupportingPage({
   );
 }
 
-/** Handles buyer, seller, and administrator authentication flows. */
+/**
+ * Handles buyer, seller, and administrator authentication flows.
+ *
+ * @param __namedParameters Authentication view, account data, notices, and login/registration callbacks.
+ */
 export function AuthPortal({
   view,
   users,
