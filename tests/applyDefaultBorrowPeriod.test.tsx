@@ -51,7 +51,8 @@ function date2str(d: Date)
 	str += h >= 10 ? "" : "0";
 	str += h;
 	str += ":";
-	str += d.getMinutes();
+	var min = d.getMinutes();
+	str += min >= 10 ? min : "00";
 	str += ":00";
 
 	return str;
